@@ -1,13 +1,6 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build && rm -f public/index.html",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "regions": ["iad1"],
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/$1"
-    }
-  ]
+  "regions": ["iad1"]
 }
