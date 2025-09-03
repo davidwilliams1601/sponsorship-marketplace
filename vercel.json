@@ -1,6 +1,3 @@
 {
-  "buildCommand": "npm run build && rm -f public/index.html",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "regions": ["iad1"]
+  "framework": "nextjs"
 }
