@@ -14,6 +14,10 @@ const nextConfig = {
   swcMinify: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
+  },
+  // Ensure CSS is properly generated
+  experimental: {
+    optimizeCss: true,
   }
 };
 
