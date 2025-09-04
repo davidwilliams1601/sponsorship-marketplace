@@ -1,98 +1,81 @@
 'use client';
 
-// import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import Link from 'next/link';
-// import Navigation from '@/components/Navigation';
 
 export default function DashboardPage() {
-  // Temporary simplified version without auth dependencies
-  // const { user, userData, loading, logout } = useAuth();
-  const router = useRouter();
-
-  // useEffect(() => {
-  //   if (!loading && !user) {
-  //     router.push('/auth/login');
-  //   }
-  // }, [user, loading, router]);
-
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center">
-  //       <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-  //     </div>
-  //   );
-  // }
-
-  // if (!user || !userData) {
-  //   return null;
-  // }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Temporarily remove Navigation */}
-      {/* <Navigation /> */}
+      {/* Simple navigation */}
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex-shrink-0">
+              <h1 className="text-2xl font-bold text-blue-600">SponsorConnect</h1>
+            </div>
+            <div className="flex space-x-4">
+              <Link href="/auth/login" className="text-gray-600 hover:text-gray-900">
+                Login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Welcome to Your Dashboard (Fixed)
+              🎉 Dashboard Working!
             </h1>
             <p className="text-xl text-gray-600 mb-8">
-              Dashboard is now working! Authentication will be restored after testing.
+              The deployment is now successful. Authentication will be restored next.
             </p>
             
-            {/* Temporarily simplified without userData */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-8">
-              <div className="text-sm text-blue-700">
-                <p className="font-medium">Dashboard successfully deployed!</p>
+            <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-8">
+              <div className="text-sm text-green-700">
+                <p className="font-medium">✅ Dashboard successfully deployed!</p>
+                <p>Ready to add back authentication and features.</p>
               </div>
             </div>
 
-            {/* Show both club and business options for now */}
-            {true && (
-              <div className="grid md:grid-cols-2 gap-6 mt-8">
-                <div className="card">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                    Create Sponsorship Request
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    List equipment or event sponsorship needs to attract local businesses
-                  </p>
-                  <Link href="/sponsorships/create" className="btn-primary block text-center">
-                    Create Request
-                  </Link>
-                </div>
-                <div className="card">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                    My Requests
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    View and manage your active sponsorship requests
-                  </p>
-                  <Link href="/sponsorships/manage" className="btn-secondary block text-center">
-                    View Requests
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            
-            <div className="grid md:grid-cols-2 gap-6 mt-8">
+            <div className="grid md:grid-cols-2 gap-6 mt-8 max-w-4xl mx-auto">
               <div className="bg-white overflow-hidden shadow rounded-lg p-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  Browse Opportunities
+                  🏆 For Sports Clubs
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Discover local sports clubs looking for sponsorship
+                  Create sponsorship requests and manage your funding needs
                 </p>
-                <Link href="/browse" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg block text-center">
+                <Link 
+                  href="/sponsorships/create" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg block text-center transition-colors"
+                >
+                  Create Sponsorship Request
+                </Link>
+              </div>
+              <div className="bg-white overflow-hidden shadow rounded-lg p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                  🤝 For Businesses
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Discover local sports clubs to sponsor and support
+                </p>
+                <Link 
+                  href="/browse" 
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg block text-center transition-colors"
+                >
                   Browse Opportunities
                 </Link>
               </div>
+            </div>
+
+            <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Status:</strong> Core pages are being restored one by one.
+                <br />
+                <strong>Next:</strong> Authentication, navigation, and full features.
+              </p>
             </div>
           </div>
         </div>
