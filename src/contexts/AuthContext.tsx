@@ -42,66 +42,74 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for demo mode user in localStorage first
-    const checkDemoUser = () => {
+    // Always set up Firebase auth listener first
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
-        const demoUser = localStorage.getItem('sponsorconnect_user');
-        if (demoUser) {
-          const userData = JSON.parse(demoUser);
-          // Create a mock user object for demo mode
-          const mockUser = {
-            uid: `demo_${userData.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-            email: userData.email,
-            displayName: userData.name,
-          } as User;
+        if (firebaseUser) {
+          // Firebase user exists - use Firebase auth
+          console.log('Firebase user detected:', firebaseUser.email);
+          setUser(firebaseUser);
           
-          setUser(mockUser);
-          setUserData({
-            name: userData.name,
-            email: userData.email,
-            type: userData.type,
-            profileCompleted: userData.profileCompleted || false,
-            createdAt: userData.createdAt || new Date(),
-            ...userData
-          });
-          setLoading(false);
-          return true;
-        }
-        return false;
-      } catch (error) {
-        console.error('Error checking demo user:', error);
-        return false;
-      }
-    };
-
-    // Try demo mode first, then Firebase auth
-    if (!checkDemoUser()) {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        try {
-          if (user) {
-            setUser(user);
-            // Fetch user data from Firestore
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            if (userDoc.exists()) {
-              setUserData(userDoc.data() as UserData);
+          // Clear any demo mode data since we have a real Firebase user
+          localStorage.removeItem('sponsorconnect_user');
+          
+          // Fetch user data from Firestore
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as UserData;
+            console.log('Firestore user data loaded:', userData);
+            setUserData(userData);
+          } else {
+            console.log('No Firestore document found for user');
+            setUserData(null);
+          }
+        } else {
+          // No Firebase user - check for demo mode
+          console.log('No Firebase user, checking demo mode...');
+          
+          try {
+            const demoUser = localStorage.getItem('sponsorconnect_user');
+            if (demoUser) {
+              console.log('Demo user detected, using demo mode');
+              const userData = JSON.parse(demoUser);
+              
+              // Create a mock user object for demo mode
+              const mockUser = {
+                uid: `demo_${userData.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+                email: userData.email,
+                displayName: userData.name,
+              } as User;
+              
+              setUser(mockUser);
+              setUserData({
+                name: userData.name,
+                email: userData.email,
+                type: userData.type,
+                profileCompleted: userData.profileCompleted || false,
+                createdAt: userData.createdAt || new Date(),
+                ...userData
+              });
             } else {
+              console.log('No demo user found');
+              setUser(null);
               setUserData(null);
             }
-          } else {
+          } catch (error) {
+            console.error('Error checking demo user:', error);
             setUser(null);
             setUserData(null);
           }
-        } catch (error) {
-          console.error('Error in auth state change:', error);
-          setUser(null);
-          setUserData(null);
-        } finally {
-          setLoading(false);
         }
-      });
+      } catch (error) {
+        console.error('Error in auth state change:', error);
+        setUser(null);
+        setUserData(null);
+      } finally {
+        setLoading(false);
+      }
+    });
 
-      return () => unsubscribe();
-    }
+    return () => unsubscribe();
   }, []);
 
   const logout = async () => {
