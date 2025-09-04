@@ -16,10 +16,10 @@ export default function Navigation() {
 
   const navItems: NavItem[] = [
     { href: '/dashboard', label: 'Dashboard', showFor: 'all' },
-    { href: '/browse', label: 'Browse', showFor: 'business' },
-    { href: '/sponsorships/create', label: 'Create', showFor: 'club' },
+    { href: '/browse', label: 'Browse Marketplace', showFor: 'all' },
+    { href: '/sponsorships/create', label: 'Create Request', showFor: 'club' },
     { href: '/sponsorships/manage', label: 'My Requests', showFor: 'club' },
-    { href: '/sponsorships/interested', label: 'Interests', showFor: 'business' },
+    { href: '/sponsorships/interested', label: 'My Interests', showFor: 'business' },
     { href: '/messages', label: 'Messages', showFor: 'all' },
     { href: '/admin', label: 'Admin', showFor: 'admin' },
   ];
