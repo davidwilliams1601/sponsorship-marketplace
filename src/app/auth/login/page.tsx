@@ -17,27 +17,88 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Temporary bypass due to Firebase connection issues
       if (!email || !password) {
         setError('Please enter both email and password');
         setLoading(false);
         return;
       }
 
-      // Simple validation for demo
-      if (email.includes('@') && password.length >= 3) {
-        // Store basic user info in localStorage for demo
-        localStorage.setItem('sponsorconnect_user', JSON.stringify({
-          email: email,
-          type: email.includes('club') ? 'club' : 'business',
-          name: email.split('@')[0]
-        }));
+      // Try Firebase authentication first
+      try {
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
         
-        // Redirect to dashboard
+        console.log('Attempting Firebase authentication...');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log('Firebase authentication successful:', userCredential.user.email);
+        
+        // Clear any demo mode data
+        localStorage.removeItem('sponsorconnect_user');
+        
+        // Redirect to dashboard - AuthContext will handle the user state
         router.push('/dashboard');
-      } else {
-        setError('Please enter a valid email and password (min 3 characters)');
+        return;
+        
+      } catch (firebaseError: any) {
+        console.error('Firebase authentication failed:', firebaseError);
+        
+        // If user not found, try to create account
+        if (firebaseError.code === 'auth/user-not-found') {
+          try {
+            const { createUserWithEmailAndPassword } = await import('firebase/auth');
+            const { doc, setDoc } = await import('firebase/firestore');
+            const { auth, db } = await import('@/lib/firebase');
+            
+            console.log('Creating new Firebase user...');
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            
+            // Create user document in Firestore
+            const userType = email.includes('club') ? 'club' : 'business';
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+              name: email.split('@')[0],
+              email: email,
+              type: userType,
+              profileCompleted: false,
+              createdAt: new Date()
+            });
+            
+            console.log('New Firebase user created successfully');
+            
+            // Clear any demo mode data
+            localStorage.removeItem('sponsorconnect_user');
+            
+            // Redirect to dashboard
+            router.push('/dashboard');
+            return;
+            
+          } catch (createError: any) {
+            console.error('Failed to create Firebase user:', createError);
+          }
+        }
+        
+        // Firebase failed, fall back to demo mode
+        console.log('Falling back to demo mode due to Firebase error:', firebaseError.code);
+        setError(`Firebase authentication unavailable (${firebaseError.code}). Using demo mode.`);
+        
+        // Demo mode fallback
+        if (email.includes('@') && password.length >= 3) {
+          localStorage.setItem('sponsorconnect_user', JSON.stringify({
+            email: email,
+            type: email.includes('club') ? 'club' : 'business',
+            name: email.split('@')[0],
+            profileCompleted: false
+          }));
+          
+          // Small delay to show the error message
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 2000);
+          return;
+        }
       }
+      
+      setError('Please enter a valid email and password');
+      
     } catch (error: any) {
       console.error('Login error:', error);
       setError('Login failed. Please try again.');
@@ -56,10 +117,10 @@ export default function LoginPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-sm text-yellow-700">
-              <strong>Demo Mode:</strong> Firebase connection issues detected. Use any email/password to continue.
-              Use "club@example.com" for club features or "business@example.com" for business features.
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-700">
+              <strong>Firebase Authentication Enabled:</strong> Use your existing account or create a new one.
+              If Firebase is unavailable, the system will automatically fall back to demo mode.
             </p>
           </div>
         </div>
@@ -82,7 +143,7 @@ export default function LoginPage() {
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="club@example.com or business@example.com"
+                placeholder="your@email.com"
               />
             </div>
             <div>
@@ -97,7 +158,7 @@ export default function LoginPage() {
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Any password (min 3 characters)"
+                placeholder="Your password"
               />
             </div>
           </div>

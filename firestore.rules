@@ -1,0 +1,170 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions for authentication and authorization
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.type == 'admin';
+    }
+    
+    function isBusiness() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.type == 'business';
+    }
+    
+    function isClub() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.type == 'club';
+    }
+    
+    function isValidUserType(type) {
+      return type in ['admin', 'club', 'business'];
+    }
+    
+    function isValidEmail(email) {
+      return email is string && email.matches('.*@.*\\..*');
+    }
+
+    // Users collection - user profiles and account data
+    match /users/{userId} {
+      // Users can read their own profile, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create their own profile during registration
+      allow create: if isAuthenticated() && 
+                       isOwner(userId) &&
+                       isValidUserType(resource.data.type) &&
+                       isValidEmail(resource.data.email) &&
+                       resource.data.name is string &&
+                       resource.data.name.size() > 0 &&
+                       resource.data.profileCompleted is bool;
+      
+      // Users can update their own profile, admins can update any
+      allow update: if (isOwner(userId) || isAdmin()) &&
+                       // Prevent users from changing their own type (only admins can)
+                       (isAdmin() || !('type' in resource.data.diff(request.resource.data).affectedKeys())) &&
+                       // Validate email format if being updated
+                       (!('email' in request.resource.data) || isValidEmail(request.resource.data.email)) &&
+                       // Validate name is not empty
+                       (!('name' in request.resource.data) || 
+                        (request.resource.data.name is string && request.resource.data.name.size() > 0));
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+
+    // Sponsorships collection - sponsorship requests and offers
+    match /sponsorships/{sponsorshipId} {
+      // Anyone authenticated can read (for discovery)
+      allow read: if isAuthenticated();
+      
+      // Only clubs can create sponsorship requests
+      allow create: if isClub() &&
+                       request.resource.data.clubId == request.auth.uid &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.title is string &&
+                       request.resource.data.title.size() > 0 &&
+                       request.resource.data.description is string &&
+                       request.resource.data.amount is number &&
+                       request.resource.data.amount > 0;
+      
+      // Clubs can update their own requests, businesses can update status for offers
+      allow update: if (isClub() && resource.data.clubId == request.auth.uid) ||
+                       (isBusiness() && 'status' in request.resource.data.diff(resource.data).affectedKeys()) ||
+                       isAdmin();
+      
+      // Only the club owner or admin can delete
+      allow delete: if (isClub() && resource.data.clubId == request.auth.uid) || isAdmin();
+    }
+
+    // Sponsorship offers from businesses to clubs
+    match /offers/{offerId} {
+      // Clubs and businesses involved, plus admins, can read
+      allow read: if isAuthenticated() && 
+                     (resource.data.businessId == request.auth.uid ||
+                      resource.data.clubId == request.auth.uid ||
+                      isAdmin());
+      
+      // Only businesses can create offers
+      allow create: if isBusiness() &&
+                       request.resource.data.businessId == request.auth.uid &&
+                       request.resource.data.clubId is string &&
+                       request.resource.data.amount is number &&
+                       request.resource.data.amount > 0 &&
+                       request.resource.data.status == 'pending';
+      
+      // Business or club involved can update, admins can update
+      allow update: if (resource.data.businessId == request.auth.uid ||
+                        resource.data.clubId == request.auth.uid ||
+                        isAdmin());
+      
+      // Only the business owner or admin can delete
+      allow delete: if (resource.data.businessId == request.auth.uid) || isAdmin();
+    }
+
+    // Messages collection - communication between parties
+    match /messages/{conversationId}/messages/{messageId} {
+      // Only sender, recipient, and admins can read
+      allow read: if isAuthenticated() && 
+                     (resource.data.senderId == request.auth.uid ||
+                      resource.data.recipientId == request.auth.uid ||
+                      isAdmin());
+      
+      // Users can create messages they send
+      allow create: if isAuthenticated() &&
+                       request.resource.data.senderId == request.auth.uid &&
+                       request.resource.data.content is string &&
+                       request.resource.data.content.size() > 0 &&
+                       request.resource.data.content.size() <= 1000;
+      
+      // Only sender and admins can update (for editing)
+      allow update: if (resource.data.senderId == request.auth.uid) || isAdmin();
+      
+      // Only sender and admins can delete
+      allow delete: if (resource.data.senderId == request.auth.uid) || isAdmin();
+    }
+
+    // Agreements - finalized sponsorship agreements
+    match /agreements/{agreementId} {
+      // Only parties involved and admins can read
+      allow read: if isAuthenticated() && 
+                     (resource.data.businessId == request.auth.uid ||
+                      resource.data.clubId == request.auth.uid ||
+                      isAdmin());
+      
+      // Only businesses and clubs involved can create
+      allow create: if isAuthenticated() &&
+                       (request.resource.data.businessId == request.auth.uid ||
+                        request.resource.data.clubId == request.auth.uid);
+      
+      // Only parties involved and admins can update
+      allow update: if (resource.data.businessId == request.auth.uid ||
+                        resource.data.clubId == request.auth.uid ||
+                        isAdmin());
+      
+      // Only admins can delete agreements
+      allow delete: if isAdmin();
+    }
+
+    // Test collection - REMOVE IN PRODUCTION
+    match /test/{document=**} {
+      allow read, write: if true; // Allow all access for testing
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
