@@ -55,21 +55,25 @@ export default function CreateSponsorshipPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('=== SPONSORSHIP CREATE FORM SUBMITTED ===');
     setError('');
     setLoading(true);
 
     try {
       // Validate required fields
       if (!formData.title || !formData.description || !formData.category || !formData.amount) {
+        console.log('Validation failed: missing required fields');
         setError('Please fill in all required fields');
         setLoading(false);
         return;
       }
 
-      // Check if we're in demo mode
+      // Always check for demo mode first
       const demoUser = localStorage.getItem('sponsorconnect_user');
+      console.log('Demo user check:', demoUser ? 'Demo mode detected' : 'No demo user found');
       
       if (demoUser) {
+        console.log('=== USING DEMO MODE FOR SPONSORSHIP CREATION ===');
         // Demo mode: simulate creation and store locally
         const sponsorshipData = {
           id: `demo_${Date.now()}`,
@@ -84,16 +88,22 @@ export default function CreateSponsorshipPage() {
           interestedBusinesses: []
         };
 
+        console.log('Creating sponsorship data:', sponsorshipData);
+
         // Store in localStorage for demo mode
         const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+        console.log('Existing requests:', existingRequests.length);
+        
         existingRequests.push(sponsorshipData);
         localStorage.setItem('sponsorconnect_requests', JSON.stringify(existingRequests));
         
-        console.log('Demo sponsorship created:', sponsorshipData);
+        console.log('✅ Demo sponsorship saved to localStorage');
+        console.log('Total requests now:', existingRequests.length);
         
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1000));
         
+        console.log('Redirecting to manage page...');
         router.push('/sponsorships/manage');
       } else {
         // Real Firebase mode
