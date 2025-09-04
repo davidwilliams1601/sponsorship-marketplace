@@ -1,4 +1,5 @@
 'use client';
+// Create new sponsorship request page
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';

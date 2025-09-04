@@ -1,4 +1,5 @@
 'use client';
+// Browse sponsorship opportunities page
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
