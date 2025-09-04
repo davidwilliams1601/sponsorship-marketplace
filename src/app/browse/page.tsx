@@ -57,30 +57,104 @@ export default function BrowsePage() {
   });
 
   useEffect(() => {
-    // Real-time subscription to active sponsorships
-    const q = query(
-      collection(db, 'sponsorships'),
-      where('status', '==', 'active'),
-      orderBy('createdAt', 'desc'),
-      limit(100)
-    );
+    // Check if we're in demo mode (localStorage user exists)
+    const demoUser = localStorage.getItem('sponsorconnect_user');
+    
+    if (demoUser) {
+      // Demo mode: use mock data
+      const mockSponsorships: Sponsorship[] = [
+        {
+          id: 'demo1',
+          title: 'New Football Kit Sponsorship',
+          description: 'Our local football club needs sponsorship for new team kits for the upcoming season. We have 25 players who need quality jerseys and shorts.',
+          category: 'equipment',
+          amount: 2500,
+          urgency: 'high',
+          status: 'active',
+          createdAt: { seconds: Date.now() / 1000 - 86400 * 2 }, // 2 days ago
+          deadline: new Date(Date.now() + 86400 * 14000).toISOString(), // 2 weeks from now
+          location: 'Manchester',
+          viewCount: 45,
+          interestedBusinesses: [],
+          clubId: 'club1',
+          clubName: 'Manchester United FC Youth'
+        },
+        {
+          id: 'demo2',
+          title: 'Tennis Court Maintenance Fund',
+          description: 'Our tennis club courts need resurfacing and net replacement. This will benefit our 50+ members and local community.',
+          category: 'facility',
+          amount: 5000,
+          urgency: 'medium',
+          status: 'active',
+          createdAt: { seconds: Date.now() / 1000 - 86400 * 5 }, // 5 days ago
+          location: 'Birmingham',
+          viewCount: 23,
+          interestedBusinesses: [],
+          clubId: 'club2',
+          clubName: 'Birmingham Tennis Club'
+        },
+        {
+          id: 'demo3',
+          title: 'Youth Cricket Team Travel Support',
+          description: 'Our under-16 cricket team has qualified for regional championships and needs travel support for accommodation and transport.',
+          category: 'travel',
+          amount: 1200,
+          urgency: 'high',
+          status: 'active',
+          createdAt: { seconds: Date.now() / 1000 - 86400 * 1 }, // 1 day ago
+          deadline: new Date(Date.now() + 86400 * 7000).toISOString(), // 1 week from now
+          location: 'London',
+          viewCount: 67,
+          interestedBusinesses: ['demo_business1'],
+          clubId: 'club3',
+          clubName: 'London Youth Cricket'
+        },
+        {
+          id: 'demo4',
+          title: 'Swimming Pool Equipment Upgrade',
+          description: 'Our swimming club needs new lane ropes and timing equipment to host regional competitions.',
+          category: 'equipment',
+          amount: 3000,
+          urgency: 'low',
+          status: 'active',
+          createdAt: { seconds: Date.now() / 1000 - 86400 * 7 }, // 1 week ago
+          location: 'Liverpool',
+          viewCount: 31,
+          interestedBusinesses: [],
+          clubId: 'club4',
+          clubName: 'Liverpool Swimming Club'
+        }
+      ];
+      
+      setSponsorships(mockSponsorships);
+      setLoading(false);
+    } else {
+      // Real Firebase mode
+      const q = query(
+        collection(db, 'sponsorships'),
+        where('status', '==', 'active'),
+        orderBy('createdAt', 'desc'),
+        limit(100)
+      );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const sponsorshipsList: Sponsorship[] = [];
-      querySnapshot.forEach((doc) => {
-        sponsorshipsList.push({
-          id: doc.id,
-          ...doc.data()
-        } as Sponsorship);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const sponsorshipsList: Sponsorship[] = [];
+        querySnapshot.forEach((doc) => {
+          sponsorshipsList.push({
+            id: doc.id,
+            ...doc.data()
+          } as Sponsorship);
+        });
+        setSponsorships(sponsorshipsList);
+        setLoading(false);
+      }, (error) => {
+        console.error('Error fetching sponsorships:', error);
+        setLoading(false);
       });
-      setSponsorships(sponsorshipsList);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching sponsorships:', error);
-      setLoading(false);
-    });
 
-    return () => unsubscribe();
+      return () => unsubscribe();
+    }
   }, []);
 
   useEffect(() => {
@@ -176,6 +250,13 @@ export default function BrowsePage() {
             <p className="text-xl text-blue-100">
               Support local sports clubs and build community connections
             </p>
+            {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
+              <div className="mt-4 p-3 bg-blue-500 border border-blue-300 rounded-md">
+                <p className="text-sm text-blue-100">
+                  <strong>Demo Mode:</strong> Showing sample sponsorship opportunities while Firebase connection issues are being resolved.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
