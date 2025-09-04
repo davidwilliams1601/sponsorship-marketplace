@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+// Updated to ensure route deployment
 
 export default function HomePage() {
   return (
