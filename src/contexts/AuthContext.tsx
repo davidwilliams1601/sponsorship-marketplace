@@ -60,8 +60,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             name: userData.name,
             email: userData.email,
             type: userData.type,
-            profileCompleted: true,
-            createdAt: new Date()
+            profileCompleted: userData.profileCompleted || false,
+            createdAt: userData.createdAt || new Date(),
+            ...userData
           });
           setLoading(false);
           return true;

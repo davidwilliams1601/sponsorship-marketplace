@@ -47,9 +47,9 @@ export default function DashboardPage() {
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-8">
                 <div className="text-sm text-yellow-700">
                   <p className="font-medium">Complete your profile to get started!</p>
-                  <button className="mt-2 text-yellow-800 underline hover:text-yellow-900">
+                  <Link href="/profile" className="mt-2 text-yellow-800 underline hover:text-yellow-900 inline-block">
                     Complete Profile →
-                  </button>
+                  </Link>
                 </div>
               </div>
             )}
