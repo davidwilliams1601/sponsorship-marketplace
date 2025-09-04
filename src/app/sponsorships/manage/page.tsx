@@ -66,29 +66,49 @@ export default function ManageSponsorshipsPage() {
   useEffect(() => {
     if (!user) return;
 
-    // Real-time subscription to user's sponsorships
-    const q = query(
-      collection(db, 'sponsorships'),
-      where('clubId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+    // Check if we're in demo mode
+    const demoUser = localStorage.getItem('sponsorconnect_user');
+    
+    if (demoUser) {
+      // Demo mode: load from localStorage
+      const loadDemoRequests = () => {
+        try {
+          const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+          setSponsorships(existingRequests);
+          setLoading(false);
+        } catch (error) {
+          console.error('Error loading demo requests:', error);
+          setSponsorships([]);
+          setLoading(false);
+        }
+      };
+      
+      loadDemoRequests();
+    } else {
+      // Real Firebase mode
+      const q = query(
+        collection(db, 'sponsorships'),
+        where('clubId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const sponsorshipsList: Sponsorship[] = [];
-      querySnapshot.forEach((doc) => {
-        sponsorshipsList.push({
-          id: doc.id,
-          ...doc.data()
-        } as Sponsorship);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const sponsorshipsList: Sponsorship[] = [];
+        querySnapshot.forEach((doc) => {
+          sponsorshipsList.push({
+            id: doc.id,
+            ...doc.data()
+          } as Sponsorship);
+        });
+        setSponsorships(sponsorshipsList);
+        setLoading(false);
+      }, (error) => {
+        console.error('Error fetching sponsorships:', error);
+        setLoading(false);
       });
-      setSponsorships(sponsorshipsList);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching sponsorships:', error);
-      setLoading(false);
-    });
 
-    return () => unsubscribe();
+      return () => unsubscribe();
+    }
   }, [user]);
 
   const handleDelete = async (id: string) => {
@@ -97,8 +117,23 @@ export default function ManageSponsorshipsPage() {
     }
 
     setDeleting(id);
+    
     try {
-      await deleteDoc(doc(db, 'sponsorships', id));
+      // Check if we're in demo mode
+      const demoUser = localStorage.getItem('sponsorconnect_user');
+      
+      if (demoUser) {
+        // Demo mode: remove from localStorage
+        const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+        const updatedRequests = existingRequests.filter((req: any) => req.id !== id);
+        localStorage.setItem('sponsorconnect_requests', JSON.stringify(updatedRequests));
+        
+        // Update local state
+        setSponsorships(updatedRequests);
+      } else {
+        // Real Firebase mode
+        await deleteDoc(doc(db, 'sponsorships', id));
+      }
     } catch (error) {
       console.error('Error deleting sponsorship:', error);
       alert('Failed to delete sponsorship request');
@@ -145,6 +180,13 @@ export default function ManageSponsorshipsPage() {
           <p className="mt-2 text-gray-600">
             Manage your active sponsorship requests and track their performance.
           </p>
+          {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-700">
+                <strong>Demo Mode:</strong> Your sponsorship requests are stored locally for demonstration purposes while Firebase connection issues are being resolved.
+              </p>
+            </div>
+          )}
         </div>
 
         {sponsorships.length === 0 ? (

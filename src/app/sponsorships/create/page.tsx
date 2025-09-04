@@ -66,23 +66,54 @@ export default function CreateSponsorshipPage() {
         return;
       }
 
-      // Create sponsorship document
-      const sponsorshipData = {
-        ...formData,
-        amount: parseFloat(formData.amount),
-        clubId: user.uid,
-        clubName: userData?.name || 'Unknown Club',
-        status: 'active',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        viewCount: 0,
-        interestedBusinesses: []
-      };
-
-      const docRef = await addDoc(collection(db, 'sponsorships'), sponsorshipData);
+      // Check if we're in demo mode
+      const demoUser = localStorage.getItem('sponsorconnect_user');
       
-      console.log('Sponsorship created with ID:', docRef.id);
-      router.push('/sponsorships/manage');
+      if (demoUser) {
+        // Demo mode: simulate creation and store locally
+        const sponsorshipData = {
+          id: `demo_${Date.now()}`,
+          ...formData,
+          amount: parseFloat(formData.amount),
+          clubId: user?.uid || 'demo_club',
+          clubName: userData?.name || 'Demo Club',
+          status: 'active',
+          createdAt: { seconds: Date.now() / 1000 },
+          updatedAt: { seconds: Date.now() / 1000 },
+          viewCount: 0,
+          interestedBusinesses: []
+        };
+
+        // Store in localStorage for demo mode
+        const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+        existingRequests.push(sponsorshipData);
+        localStorage.setItem('sponsorconnect_requests', JSON.stringify(existingRequests));
+        
+        console.log('Demo sponsorship created:', sponsorshipData);
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        router.push('/sponsorships/manage');
+      } else {
+        // Real Firebase mode
+        const sponsorshipData = {
+          ...formData,
+          amount: parseFloat(formData.amount),
+          clubId: user?.uid || '',
+          clubName: userData?.name || 'Unknown Club',
+          status: 'active',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          viewCount: 0,
+          interestedBusinesses: []
+        };
+
+        const docRef = await addDoc(collection(db, 'sponsorships'), sponsorshipData);
+        
+        console.log('Sponsorship created with ID:', docRef.id);
+        router.push('/sponsorships/manage');
+      }
       
     } catch (error: any) {
       console.error('Error creating sponsorship:', error);
@@ -110,6 +141,13 @@ export default function CreateSponsorshipPage() {
           <p className="mt-2 text-gray-600">
             Create a detailed sponsorship request to attract local businesses to support your club.
           </p>
+          {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-700">
+                <strong>Demo Mode:</strong> Your sponsorship request will be saved locally for demonstration purposes while Firebase connection issues are being resolved.
+              </p>
+            </div>
+          )}
         </div>
 
         {error && (
