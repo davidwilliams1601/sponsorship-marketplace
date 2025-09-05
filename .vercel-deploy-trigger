@@ -1,12 +1,11 @@
-Deployment trigger - timestamp: 2025-09-04 22:15:00
-Complete sponsorship marketplace with profile creation deployed:
-- Full authentication system (demo mode)
-- Browse sponsorship opportunities (demo data)  
-- Create sponsorship requests (localStorage)
-- Manage sponsorship requests (localStorage)
-- Comprehensive profile creation for businesses and clubs
-- Dashboard integration (role-based)
-- Profile completion workflow
-- Payment integration placeholder ready
-- Firebase connection fallback working
-deployment trigger Thu  4 Sep 2025 21:15:00 BST
+Deployment trigger - timestamp: 2025-09-05 07:00:00
+Enhanced sponsorship creation debugging deployed:
+- Fixed Next.js configuration warnings
+- Enhanced error handling with auto-fallback to demo mode
+- Comprehensive debugging logs for troubleshooting
+- Improved auth state management with loading states
+- Debug page available at /debug for testing
+- Firestore security rules fixes
+- Better user experience with specific error messages
+- Auto-recovery from Firebase connection failures
+deployment trigger Thu  5 Sep 2025 07:00:00 BST
