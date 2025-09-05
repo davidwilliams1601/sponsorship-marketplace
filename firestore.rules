@@ -44,11 +44,11 @@ service cloud.firestore {
       // Users can create their own profile during registration
       allow create: if isAuthenticated() && 
                        isOwner(userId) &&
-                       isValidUserType(resource.data.type) &&
-                       isValidEmail(resource.data.email) &&
-                       resource.data.name is string &&
-                       resource.data.name.size() > 0 &&
-                       resource.data.profileCompleted is bool;
+                       isValidUserType(request.resource.data.type) &&
+                       isValidEmail(request.resource.data.email) &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() > 0 &&
+                       request.resource.data.profileCompleted is bool;
       
       // Users can update their own profile, admins can update any
       allow update: if (isOwner(userId) || isAdmin()) &&

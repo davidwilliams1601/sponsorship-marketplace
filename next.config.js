@@ -10,8 +10,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Optimize for production
-  swcMinify: true,
+  // swcMinify is now enabled by default in Next.js 15
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },

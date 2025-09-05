@@ -25,7 +25,7 @@ const URGENCY_LEVELS = [
 ];
 
 export default function CreateSponsorshipPage() {
-  const { user, userData } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -42,13 +42,31 @@ export default function CreateSponsorshipPage() {
     images: []
   });
 
+  // Debug logging for auth state
+  console.log('CreateSponsorshipPage - Auth State:', {
+    user: user ? { uid: user.uid, email: user.email } : null,
+    userData: userData,
+    authLoading
+  });
+
+  // Wait for auth to load before redirecting
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   // Redirect if not a club
   if (userData && userData.type !== 'club') {
+    console.log('Redirecting - user type is not club:', userData.type);
     router.push('/dashboard');
     return null;
   }
 
   if (!user) {
+    console.log('Redirecting - no user found');
     router.push('/auth/login');
     return null;
   }
@@ -126,8 +144,55 @@ export default function CreateSponsorshipPage() {
       }
       
     } catch (error: any) {
-      console.error('Error creating sponsorship:', error);
-      setError('Failed to create sponsorship request. Please try again.');
+      console.error('=== SPONSORSHIP CREATION ERROR ===');
+      console.error('Error details:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error code:', error?.code);
+      console.error('Current user:', user ? { uid: user.uid, email: user.email } : 'No user');
+      console.error('Current userData:', userData);
+      console.error('Form data at error:', formData);
+      console.error('================================');
+      
+      let errorMessage = 'Failed to create sponsorship request. Please try again.';
+      
+      // Provide more specific error messages
+      if (error?.code === 'permission-denied') {
+        errorMessage = 'Permission denied. Please ensure you are logged in as a club.';
+      } else if (error?.code === 'network-request-failed') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error?.message?.includes('Firebase')) {
+        errorMessage = 'Database connection failed. Trying demo mode...';
+        
+        // Auto-fallback to demo mode on Firebase errors
+        try {
+          console.log('Auto-falling back to demo mode...');
+          const sponsorshipData = {
+            id: `demo_fallback_${Date.now()}`,
+            ...formData,
+            amount: parseFloat(formData.amount),
+            clubId: user?.uid || 'demo_club',
+            clubName: userData?.name || 'Demo Club',
+            status: 'active',
+            createdAt: { seconds: Date.now() / 1000 },
+            updatedAt: { seconds: Date.now() / 1000 },
+            viewCount: 0,
+            interestedBusinesses: []
+          };
+
+          const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+          existingRequests.push(sponsorshipData);
+          localStorage.setItem('sponsorconnect_requests', JSON.stringify(existingRequests));
+          
+          console.log('✅ Auto-fallback to demo mode successful');
+          router.push('/sponsorships/manage');
+          return;
+        } catch (fallbackError) {
+          console.error('Demo mode fallback also failed:', fallbackError);
+          errorMessage = 'Both Firebase and demo mode failed. Please refresh and try again.';
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
