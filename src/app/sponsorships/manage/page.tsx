@@ -74,59 +74,78 @@ export default function ManageSponsorshipsPage() {
     const demoUser = localStorage.getItem('sponsorconnect_user');
     console.log('Demo user check:', demoUser ? 'Demo mode detected' : 'No demo user found');
     
-    if (demoUser) {
-      // Demo mode: load from localStorage
-      console.log('=== USING DEMO MODE FOR MANAGE PAGE ===');
-      const loadDemoRequests = () => {
+    // ALWAYS TRY FIREBASE FIRST - regardless of demo mode presence
+    console.log('=== TRYING FIREBASE MODE FIRST ===');
+    console.log('Querying for clubId:', user.uid);
+    
+    const q = query(
+      collection(db, 'sponsorships'),
+      where('clubId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      console.log('Firebase query returned:', querySnapshot.size, 'documents');
+      const sponsorshipsList: Sponsorship[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log('Found sponsorship:', doc.id, data);
+        sponsorshipsList.push({
+          id: doc.id,
+          ...data
+        } as Sponsorship);
+      });
+      console.log('Final sponsorships list:', sponsorshipsList);
+      
+      // If Firebase returns results, use them
+      if (sponsorshipsList.length > 0) {
+        console.log('✅ Using Firebase data:', sponsorshipsList.length, 'sponsorships');
+        setSponsorships(sponsorshipsList);
+        setLoading(false);
+      } else {
+        // Fallback to demo mode if no Firebase results
+        console.log('📱 No Firebase data found, checking demo mode...');
+        if (demoUser) {
+          console.log('=== FALLING BACK TO DEMO MODE ===');
+          try {
+            const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+            console.log('Loaded demo requests:', existingRequests.length, 'requests');
+            console.log('Demo requests data:', existingRequests);
+            setSponsorships(existingRequests);
+          } catch (error) {
+            console.error('Error loading demo requests:', error);
+            setSponsorships([]);
+          }
+        } else {
+          console.log('No demo data either, showing empty state');
+          setSponsorships([]);
+        }
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error('=== FIREBASE QUERY ERROR ===');
+      console.error('Error details:', error);
+      console.error('Error code:', error?.code);
+      console.error('Error message:', error?.message);
+      
+      // Fallback to demo mode on Firebase error
+      if (demoUser) {
+        console.log('=== FALLING BACK TO DEMO MODE DUE TO ERROR ===');
         try {
           const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
           console.log('Loaded demo requests:', existingRequests.length, 'requests');
-          console.log('Demo requests data:', existingRequests);
           setSponsorships(existingRequests);
-          setLoading(false);
         } catch (error) {
           console.error('Error loading demo requests:', error);
           setSponsorships([]);
-          setLoading(false);
         }
-      };
-      
-      loadDemoRequests();
-    } else {
-      // Real Firebase mode
-      console.log('=== USING FIREBASE MODE FOR MANAGE PAGE ===');
-      console.log('Querying for clubId:', user.uid);
-      
-      const q = query(
-        collection(db, 'sponsorships'),
-        where('clubId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
+      } else {
+        setSponsorships([]);
+      }
+      setLoading(false);
+    });
 
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        console.log('Firebase query returned:', querySnapshot.size, 'documents');
-        const sponsorshipsList: Sponsorship[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          console.log('Found sponsorship:', doc.id, data);
-          sponsorshipsList.push({
-            id: doc.id,
-            ...data
-          } as Sponsorship);
-        });
-        console.log('Final sponsorships list:', sponsorshipsList);
-        setSponsorships(sponsorshipsList);
-        setLoading(false);
-      }, (error) => {
-        console.error('=== FIREBASE QUERY ERROR ===');
-        console.error('Error details:', error);
-        console.error('Error code:', error?.code);
-        console.error('Error message:', error?.message);
-        setLoading(false);
-      });
-
-      return () => unsubscribe();
-    }
+    return () => unsubscribe();
   }, [user]);
 
   const handleDelete = async (id: string) => {
