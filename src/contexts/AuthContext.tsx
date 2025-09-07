@@ -40,8 +40,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Prevent hydration issues by ensuring client-side rendering
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
+    if (!isHydrated) return; // Wait for hydration to complete
     // Always set up Firebase auth listener first
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
@@ -110,7 +117,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isHydrated]);
 
   const logout = async () => {
     try {
@@ -134,9 +141,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const value = {
     user,
     userData,
-    loading,
+    loading: loading || !isHydrated, // Keep loading until hydrated
     logout,
   };
+
+  // Prevent flash of wrong content during hydration
+  if (!isHydrated) {
+    return (
+      <AuthContext.Provider value={{ user: null, userData: null, loading: true, logout: async () => {} }}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>
