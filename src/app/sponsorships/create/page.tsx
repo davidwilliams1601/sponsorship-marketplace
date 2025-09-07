@@ -43,6 +43,7 @@ export default function CreateSponsorshipPage() {
   });
 
   // Debug logging for auth state
+  console.log('🚀 DEPLOYMENT TEST - CreateSponsorshipPage loaded at:', new Date().toISOString());
   console.log('CreateSponsorshipPage - Auth State:', {
     user: user ? { uid: user.uid, email: user.email } : null,
     userData: userData,
