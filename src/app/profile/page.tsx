@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 
@@ -83,14 +85,77 @@ export default function ProfilePage() {
       return;
     }
 
-    // Pre-fill with existing data if available
-    if (userData) {
-      setFormData(prev => ({
-        ...prev,
-        name: userData.name || '',
-        contactEmail: userData.email || '',
-      }));
-    }
+    // Load existing profile data
+    const loadProfileData = async () => {
+      try {
+        // Check if we're in demo mode first
+        const demoUser = localStorage.getItem('sponsorconnect_user');
+        
+        if (demoUser) {
+          // Demo mode: load from localStorage
+          const userData = JSON.parse(demoUser);
+          console.log('Loading demo profile data:', userData);
+          setFormData(prev => ({
+            ...prev,
+            name: userData.name || '',
+            contactEmail: userData.email || '',
+            description: userData.description || '',
+            location: userData.location || '',
+            website: userData.website || '',
+            phone: userData.phone || '',
+            ...userData // Load all other profile fields
+          }));
+        } else if (user) {
+          // Firebase mode: load from Firestore
+          console.log('Loading Firebase profile data for user:', user.uid);
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (userDocSnap.exists()) {
+            const profileData = userDocSnap.data();
+            console.log('Loaded Firebase profile data:', profileData);
+            setFormData(prev => ({
+              ...prev,
+              name: profileData.name || '',
+              contactEmail: profileData.email || user.email || '',
+              description: profileData.description || '',
+              location: profileData.location || '',
+              website: profileData.website || '',
+              phone: profileData.phone || '',
+              businessType: profileData.businessType || '',
+              industry: profileData.industry || '',
+              sponsorshipBudget: profileData.sponsorshipBudget || '',
+              sponsorshipInterests: profileData.sponsorshipInterests || [],
+              clubType: profileData.clubType || '',
+              foundedYear: profileData.foundedYear || '',
+              memberCount: profileData.memberCount || '',
+              ageGroups: profileData.ageGroups || [],
+              achievements: profileData.achievements || ''
+            }));
+          } else {
+            // No existing profile, pre-fill with basic data
+            console.log('No existing Firebase profile, using basic user data');
+            setFormData(prev => ({
+              ...prev,
+              name: userData?.name || '',
+              contactEmail: userData?.email || user.email || '',
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading profile data:', error);
+        // Fallback to basic user data
+        if (userData) {
+          setFormData(prev => ({
+            ...prev,
+            name: userData.name || '',
+            contactEmail: userData.email || '',
+          }));
+        }
+      }
+    };
+
+    loadProfileData();
   }, [user, userData, router]);
 
   if (!user || !userData) {
@@ -159,8 +224,47 @@ export default function ProfilePage() {
           router.push('/dashboard');
         }, 1500);
       } else {
-        // TODO: Real Firebase mode - update Firestore user document
-        setError('Profile update not yet implemented for Firebase mode');
+        // Real Firebase mode - update Firestore user document
+        console.log('=== UPDATING FIREBASE USER PROFILE ===');
+        console.log('User ID:', user.uid);
+        console.log('Profile data:', formData);
+        
+        const userDocRef = doc(db, 'users', user.uid);
+        
+        // Prepare the data to save
+        const profileData = {
+          ...formData,
+          type: userData.type, // Preserve user type
+          email: userData.email, // Preserve email
+          profileCompleted: true,
+          updatedAt: serverTimestamp()
+        };
+        
+        try {
+          // Try to update the document first
+          await updateDoc(userDocRef, profileData);
+          console.log('✅ Profile updated successfully');
+        } catch (updateError: any) {
+          console.log('Update failed, trying setDoc:', updateError?.code);
+          
+          // If document doesn't exist, create it
+          if (updateError?.code === 'not-found') {
+            await setDoc(userDocRef, {
+              ...profileData,
+              createdAt: serverTimestamp()
+            });
+            console.log('✅ Profile created successfully');
+          } else {
+            throw updateError;
+          }
+        }
+        
+        setSuccess('Profile completed successfully!');
+        
+        // Redirect to dashboard after a moment
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500);
       }
       
     } catch (error: any) {
