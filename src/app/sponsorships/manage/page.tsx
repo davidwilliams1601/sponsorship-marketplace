@@ -39,6 +39,7 @@ const URGENCY_STYLES: { [key: string]: string } = {
 };
 
 const STATUS_STYLES: { [key: string]: string } = {
+  pending: 'bg-yellow-100 text-yellow-800', // Added pending status
   active: 'bg-blue-100 text-blue-800',
   funded: 'bg-green-100 text-green-800',
   paused: 'bg-gray-100 text-gray-800',
@@ -66,14 +67,21 @@ export default function ManageSponsorshipsPage() {
   useEffect(() => {
     if (!user) return;
 
+    console.log('=== MANAGE PAGE LOADING SPONSORSHIPS ===');
+    console.log('User:', user ? { uid: user.uid, email: user.email } : null);
+
     // Check if we're in demo mode
     const demoUser = localStorage.getItem('sponsorconnect_user');
+    console.log('Demo user check:', demoUser ? 'Demo mode detected' : 'No demo user found');
     
     if (demoUser) {
       // Demo mode: load from localStorage
+      console.log('=== USING DEMO MODE FOR MANAGE PAGE ===');
       const loadDemoRequests = () => {
         try {
           const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+          console.log('Loaded demo requests:', existingRequests.length, 'requests');
+          console.log('Demo requests data:', existingRequests);
           setSponsorships(existingRequests);
           setLoading(false);
         } catch (error) {
@@ -86,6 +94,9 @@ export default function ManageSponsorshipsPage() {
       loadDemoRequests();
     } else {
       // Real Firebase mode
+      console.log('=== USING FIREBASE MODE FOR MANAGE PAGE ===');
+      console.log('Querying for clubId:', user.uid);
+      
       const q = query(
         collection(db, 'sponsorships'),
         where('clubId', '==', user.uid),
@@ -93,17 +104,24 @@ export default function ManageSponsorshipsPage() {
       );
 
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        console.log('Firebase query returned:', querySnapshot.size, 'documents');
         const sponsorshipsList: Sponsorship[] = [];
         querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log('Found sponsorship:', doc.id, data);
           sponsorshipsList.push({
             id: doc.id,
-            ...doc.data()
+            ...data
           } as Sponsorship);
         });
+        console.log('Final sponsorships list:', sponsorshipsList);
         setSponsorships(sponsorshipsList);
         setLoading(false);
       }, (error) => {
-        console.error('Error fetching sponsorships:', error);
+        console.error('=== FIREBASE QUERY ERROR ===');
+        console.error('Error details:', error);
+        console.error('Error code:', error?.code);
+        console.error('Error message:', error?.message);
         setLoading(false);
       });
 
