@@ -89,7 +89,7 @@ export default function ProfilePage() {
     const loadProfileData = async () => {
       try {
         // Check if we're in demo mode first
-        const demoUser = localStorage.getItem('sponsorconnect_user');
+        const demoUser = typeof window !== 'undefined' ? localStorage.getItem('sponsorconnect_user') : null;
         
         if (demoUser) {
           // Demo mode: load from localStorage
@@ -200,7 +200,7 @@ export default function ProfilePage() {
       }
 
       // Check if we're in demo mode
-      const demoUser = localStorage.getItem('sponsorconnect_user');
+      const demoUser = typeof window !== 'undefined' ? localStorage.getItem('sponsorconnect_user') : null;
       
       if (demoUser) {
         // Demo mode: update localStorage
@@ -212,7 +212,9 @@ export default function ProfilePage() {
           updatedAt: new Date().toISOString()
         };
         
-        localStorage.setItem('sponsorconnect_user', JSON.stringify(updatedUserData));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sponsorconnect_user', JSON.stringify(updatedUserData));
+        }
         
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1000));
