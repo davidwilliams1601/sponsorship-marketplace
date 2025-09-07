@@ -127,6 +127,7 @@ export default function CreateSponsorshipPage() {
       } else {
         // Real Firebase mode
         console.log('=== USING FIREBASE MODE FOR SPONSORSHIP CREATION ===');
+        
         const sponsorshipData = {
           ...formData,
           amount: parseFloat(formData.amount),
@@ -141,7 +142,15 @@ export default function CreateSponsorshipPage() {
         
         console.log('Creating Firebase sponsorship data:', sponsorshipData);
 
-        const docRef = await addDoc(collection(db, 'sponsorships'), sponsorshipData);
+        // Add timeout to detect Firebase connection issues
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firebase operation timeout - falling back to demo mode')), 10000)
+        );
+        
+        const docRef = await Promise.race([
+          addDoc(collection(db, 'sponsorships'), sponsorshipData),
+          timeoutPromise
+        ]);
         
         console.log('Sponsorship created with ID:', docRef.id);
         router.push('/sponsorships/manage');
@@ -164,7 +173,7 @@ export default function CreateSponsorshipPage() {
         errorMessage = 'Permission denied. Please ensure you are logged in as a club.';
       } else if (error?.code === 'network-request-failed') {
         errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (error?.message?.includes('Firebase')) {
+      } else if (error?.code === 'unavailable' || error?.message?.includes('Cloud Firestore backend') || error?.message?.includes('Firebase')) {
         errorMessage = 'Database connection failed. Trying demo mode...';
         
         // Auto-fallback to demo mode on Firebase errors
