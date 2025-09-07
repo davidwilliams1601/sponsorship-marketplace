@@ -99,7 +99,7 @@ export default function CreateSponsorshipPage() {
           amount: parseFloat(formData.amount),
           clubId: user?.uid || 'demo_club',
           clubName: userData?.name || 'Demo Club',
-          status: 'active',
+          status: 'pending', // Changed to match Firebase rules and provide consistency
           createdAt: { seconds: Date.now() / 1000 },
           updatedAt: { seconds: Date.now() / 1000 },
           viewCount: 0,
@@ -125,17 +125,20 @@ export default function CreateSponsorshipPage() {
         router.push('/sponsorships/manage');
       } else {
         // Real Firebase mode
+        console.log('=== USING FIREBASE MODE FOR SPONSORSHIP CREATION ===');
         const sponsorshipData = {
           ...formData,
           amount: parseFloat(formData.amount),
           clubId: user?.uid || '',
           clubName: userData?.name || 'Unknown Club',
-          status: 'active',
+          status: 'pending', // Changed from 'active' to 'pending' to match Firestore rules
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           viewCount: 0,
           interestedBusinesses: []
         };
+        
+        console.log('Creating Firebase sponsorship data:', sponsorshipData);
 
         const docRef = await addDoc(collection(db, 'sponsorships'), sponsorshipData);
         
@@ -172,7 +175,7 @@ export default function CreateSponsorshipPage() {
             amount: parseFloat(formData.amount),
             clubId: user?.uid || 'demo_club',
             clubName: userData?.name || 'Demo Club',
-            status: 'active',
+            status: 'pending', // Consistent status across all modes
             createdAt: { seconds: Date.now() / 1000 },
             updatedAt: { seconds: Date.now() / 1000 },
             viewCount: 0,
