@@ -19,6 +19,7 @@ interface AuthContextType {
   userData: UserData | null;
   loading: boolean;
   logout: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   userData: null,
   loading: true,
   logout: async () => {},
+  refreshUserData: async () => {},
 });
 
 export const useAuth = () => {
@@ -119,6 +121,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, [isHydrated]);
 
+  const refreshUserData = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('Refreshing user data for:', user.email);
+      
+      // Check if we're in demo mode
+      const demoUser = localStorage.getItem('sponsorconnect_user');
+      
+      if (demoUser) {
+        // Demo mode - reload from localStorage
+        console.log('Refreshing demo user data');
+        const userData = JSON.parse(demoUser);
+        setUserData({
+          name: userData.name,
+          email: userData.email,
+          type: userData.type,
+          profileCompleted: userData.profileCompleted || false,
+          createdAt: userData.createdAt || new Date(),
+          ...userData
+        });
+      } else {
+        // Firebase mode - reload from Firestore
+        console.log('Refreshing Firebase user data');
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as UserData;
+          console.log('Refreshed user data:', userData);
+          setUserData(userData);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
+
   const logout = async () => {
     try {
       // Clear demo mode data
@@ -143,12 +181,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     userData,
     loading: loading || !isHydrated, // Keep loading until hydrated
     logout,
+    refreshUserData,
   };
 
   // Prevent flash of wrong content during hydration
   if (!isHydrated) {
     return (
-      <AuthContext.Provider value={{ user: null, userData: null, loading: true, logout: async () => {} }}>
+      <AuthContext.Provider value={{ user: null, userData: null, loading: true, logout: async () => {}, refreshUserData: async () => {} }}>
         {children}
       </AuthContext.Provider>
     );

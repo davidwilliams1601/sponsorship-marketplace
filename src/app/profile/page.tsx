@@ -55,7 +55,7 @@ const AGE_GROUPS = [
 ];
 
 export default function ProfilePage() {
-  const { user, userData } = useAuth();
+  const { user, userData, refreshUserData } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -154,6 +154,9 @@ export default function ProfilePage() {
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1000));
         
+        // Refresh the user data in AuthContext
+        await refreshUserData();
+        
         setSuccess('Profile completed successfully!');
         
         // Redirect to dashboard after a moment
@@ -196,6 +199,9 @@ export default function ProfilePage() {
           }
         }
         
+        // Refresh the user data in AuthContext
+        await refreshUserData();
+        
         setSuccess('Profile updated successfully!');
         
         // Redirect to dashboard after a moment
@@ -234,6 +240,9 @@ export default function ProfilePage() {
           };
           
           localStorage.setItem('sponsorconnect_user', JSON.stringify(demoUserData));
+          
+          // Refresh the user data in AuthContext
+          await refreshUserData();
           
           console.log('✅ Auto-fallback to demo mode successful');
           setSuccess('Profile saved successfully in demo mode!');
