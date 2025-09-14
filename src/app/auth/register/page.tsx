@@ -20,27 +20,91 @@ function RegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('=== REGISTER FORM SUBMITTED ===');
+    console.log('Name:', name);
+    console.log('Email:', email);
+    console.log('User type:', userType);
+    console.log('Password length:', password.length);
+    
     setLoading(true);
     setError('');
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      if (!name || !email || !password) {
+        console.log('Missing required fields');
+        setError('Please fill in all fields');
+        setLoading(false);
+        return;
+      }
 
-      // Create user document in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        name,
-        email,
-        type: userType,
-        profileCompleted: false,
-        createdAt: serverTimestamp(),
-      });
+      // Try Firebase registration first
+      try {
+        console.log('=== ATTEMPTING FIREBASE REGISTRATION ===');
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
 
-      router.push('/dashboard');
+        console.log('✅ Firebase registration successful:', user.email);
+        console.log('User UID:', user.uid);
+
+        // Create user document in Firestore
+        await setDoc(doc(db, 'users', user.uid), {
+          name,
+          email,
+          type: userType,
+          profileCompleted: false,
+          createdAt: serverTimestamp(),
+        });
+
+        console.log('✅ Firestore document created successfully');
+        
+        // Clear any demo mode data
+        localStorage.removeItem('sponsorconnect_user');
+        console.log('Demo mode data cleared');
+
+        console.log('Redirecting to dashboard...');
+        router.push('/dashboard');
+        return;
+
+      } catch (firebaseError: any) {
+        console.log('=== FIREBASE REGISTRATION FAILED ===');
+        console.error('Firebase error code:', firebaseError.code);
+        console.error('Firebase error message:', firebaseError.message);
+        
+        // Firebase failed, fall back to demo mode
+        console.log('=== FALLING BACK TO DEMO MODE ===');
+        setError(`Firebase registration unavailable (${firebaseError.code}). Using demo mode.`);
+        
+        // Demo mode fallback
+        if (email.includes('@') && password.length >= 3 && name.trim()) {
+          const demoData = {
+            email: email,
+            type: userType,
+            name: name.trim(),
+            profileCompleted: false,
+            createdAt: new Date().toISOString()
+          };
+          
+          console.log('Setting demo mode registration data:', demoData);
+          localStorage.setItem('sponsorconnect_user', JSON.stringify(demoData));
+          
+          // Small delay to show the error message
+          setTimeout(() => {
+            console.log('Demo mode: redirecting to dashboard...');
+            router.push('/dashboard');
+          }, 2000);
+          return;
+        }
+      }
+      
+      console.log('❌ Registration validation failed');
+      setError('Please enter valid information for all fields');
+      
     } catch (error: any) {
-      setError(error.message);
+      console.error('❌ Unexpected registration error:', error);
+      setError('Registration failed. Please try again.');
     } finally {
       setLoading(false);
+      console.log('=== REGISTRATION PROCESS COMPLETED ===');
     }
   };
 
@@ -57,6 +121,12 @@ function RegisterForm() {
           <p className="mt-2 text-center text-sm text-gray-600">
             Register as a {userType === 'club' ? 'Sports Club' : 'Business'}
           </p>
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-700">
+              <strong>Firebase Authentication Enabled:</strong> Create a new account or use demo mode.
+              If Firebase is unavailable, the system will automatically fall back to demo mode.
+            </p>
+          </div>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
