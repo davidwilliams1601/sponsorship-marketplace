@@ -57,12 +57,35 @@ export default function BrowsePage() {
   });
 
   useEffect(() => {
+    console.log('=== BROWSE PAGE LOADING ===');
+    console.log('User type:', userData?.type);
+    
     // Check if we're in demo mode (localStorage user exists)
     const demoUser = localStorage.getItem('sponsorconnect_user');
     
     if (demoUser) {
-      // Demo mode: use mock data
-      const mockSponsorships: Sponsorship[] = [
+      // Demo mode: show different content based on user type
+      if (userData?.type === 'business') {
+        console.log('Loading sponsorship requests for business user');
+        // Businesses see sponsorship REQUESTS (what clubs need funding for)
+        loadSponsorshipRequestsForBusiness();
+      } else if (userData?.type === 'club') {
+        console.log('Loading sponsorship opportunities for club user');
+        // Clubs see sponsorship OPPORTUNITIES (what businesses are offering)
+        loadSponsorshipOpportunitiesForClub();
+      } else {
+        console.log('Unknown user type, loading default content');
+        loadSponsorshipRequestsForBusiness(); // Default to business view
+      }
+    } else {
+      // Real Firebase mode - implement later
+      setLoading(false);
+    }
+  }, [userData?.type]);
+
+  const loadSponsorshipRequestsForBusiness = () => {
+    // Mock sponsorship requests from clubs (for businesses to sponsor)
+    const mockSponsorshipRequests: Sponsorship[] = [
         {
           id: 'demo1',
           title: 'New Football Kit Sponsorship',
@@ -130,47 +153,76 @@ export default function BrowsePage() {
       // Also load user-created sponsorships from localStorage
       try {
         const userCreatedRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
-        console.log('Loading user-created sponsorships for browse page:', userCreatedRequests.length);
+        console.log('Loading user-created sponsorship requests:', userCreatedRequests.length);
         
-        // Combine mock sponsorships with user-created ones
-        const allSponsorships = [...mockSponsorships, ...userCreatedRequests];
-        console.log('Total sponsorships in browse page:', allSponsorships.length);
+        // Combine mock requests with user-created ones
+        const allRequests = [...mockSponsorshipRequests, ...userCreatedRequests];
+        console.log('Total sponsorship requests for business:', allRequests.length);
         
-        setSponsorships(allSponsorships);
+        setSponsorships(allRequests);
       } catch (error) {
-        console.error('Error loading user sponsorships for browse:', error);
-        // Fallback to just mock data
-        setSponsorships(mockSponsorships);
+        console.error('Error loading user sponsorships for business:', error);
+        setSponsorships(mockSponsorshipRequests);
       }
       
       setLoading(false);
-    } else {
-      // Real Firebase mode
-      const q = query(
-        collection(db, 'sponsorships'),
-        where('status', 'in', ['active', 'pending']), // Include both active and pending sponsorships
-        orderBy('createdAt', 'desc'),
-        limit(100)
-      );
+  };
 
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const sponsorshipsList: Sponsorship[] = [];
-        querySnapshot.forEach((doc) => {
-          sponsorshipsList.push({
-            id: doc.id,
-            ...doc.data()
-          } as Sponsorship);
-        });
-        setSponsorships(sponsorshipsList);
-        setLoading(false);
-      }, (error) => {
-        console.error('Error fetching sponsorships:', error);
-        setLoading(false);
-      });
-
-      return () => unsubscribe();
-    }
-  }, []);
+  const loadSponsorshipOpportunitiesForClub = () => {
+    // Mock sponsorship opportunities from businesses (for clubs to apply to)
+    const mockSponsorshipOpportunities: Sponsorship[] = [
+      {
+        id: 'opp1',
+        title: 'Local Restaurant Team Sponsorship',
+        description: 'Pizza Palace is offering to sponsor a local sports team. We provide team meals after games, branded jerseys with our logo, and £2000 seasonal support.',
+        category: 'general',
+        amount: 2000,
+        urgency: 'medium',
+        status: 'active',
+        createdAt: { seconds: Date.now() / 1000 - 86400 * 3 },
+        location: 'Manchester',
+        viewCount: 34,
+        interestedBusinesses: [],
+        clubId: 'pizza_palace_business',
+        clubName: 'Pizza Palace Restaurant'
+      },
+      {
+        id: 'opp2',
+        title: 'Sports Equipment Store Partnership',
+        description: 'SportsCo is looking to partner with youth sports clubs. We offer 30% discount on all equipment, free team kit cleaning, and promotional support.',
+        category: 'equipment',
+        amount: 1500,
+        urgency: 'low',
+        status: 'active',
+        createdAt: { seconds: Date.now() / 1000 - 86400 * 5 },
+        location: 'Birmingham',
+        viewCount: 28,
+        interestedBusinesses: [],
+        clubId: 'sportsco_business',
+        clubName: 'SportsCo Equipment Store'
+      },
+      {
+        id: 'opp3',
+        title: 'Construction Company Community Investment',
+        description: 'BuildWell Construction wants to invest in local sports facilities. We offer facility improvements, ground maintenance, and ongoing support for community clubs.',
+        category: 'facility',
+        amount: 5000,
+        urgency: 'high',
+        status: 'active',
+        createdAt: { seconds: Date.now() / 1000 - 86400 * 1 },
+        location: 'London',
+        viewCount: 67,
+        interestedBusinesses: [],
+        clubId: 'buildwell_business',
+        clubName: 'BuildWell Construction Ltd'
+      }
+    ];
+    
+    // For now, clubs only see these mock opportunities
+    // Later: load real sponsorship opportunities from localStorage/Firebase
+    setSponsorships(mockSponsorshipOpportunities);
+    setLoading(false);
+  };
 
   useEffect(() => {
     // Apply filters and sorting
@@ -259,16 +311,31 @@ export default function BrowsePage() {
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">
-              Discover Sponsorship Opportunities
-            </h1>
-            <p className="text-xl text-blue-100">
-              Support local sports clubs and build community connections
-            </p>
+            {userData?.type === 'business' ? (
+              <>
+                <h1 className="text-4xl font-bold mb-4">
+                  Sponsorship Requests from Local Clubs
+                </h1>
+                <p className="text-xl text-blue-100">
+                  Support local sports clubs and build community connections
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-4xl font-bold mb-4">
+                  Available Sponsorship Opportunities
+                </h1>
+                <p className="text-xl text-blue-100">
+                  Discover businesses offering sponsorship support for clubs like yours
+                </p>
+              </>
+            )}
             {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
               <div className="mt-4 p-3 bg-blue-500 border border-blue-300 rounded-md">
                 <p className="text-sm text-blue-100">
-                  <strong>Demo Mode:</strong> Showing sample sponsorship opportunities while Firebase connection issues are being resolved.
+                  <strong>Demo Mode:</strong> {userData?.type === 'business' 
+                    ? 'Showing sponsorship requests from clubs + your created sponsorships.'
+                    : 'Showing sample sponsorship opportunities from businesses.'}
                 </p>
               </div>
             )}
