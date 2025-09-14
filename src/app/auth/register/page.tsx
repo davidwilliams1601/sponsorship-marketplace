@@ -37,23 +37,39 @@ function RegisterForm() {
         return;
       }
 
-      // Try Firebase registration first
+      // Try Firebase registration first with timeout
       try {
         console.log('=== ATTEMPTING FIREBASE REGISTRATION ===');
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firebase registration timeout - falling back to demo mode')), 10000)
+        );
+        
+        const userCredential = await Promise.race([
+          createUserWithEmailAndPassword(auth, email, password),
+          timeoutPromise
+        ]) as any;
+        
         const user = userCredential.user;
-
         console.log('✅ Firebase registration successful:', user.email);
         console.log('User UID:', user.uid);
 
-        // Create user document in Firestore
-        await setDoc(doc(db, 'users', user.uid), {
-          name,
-          email,
-          type: userType,
-          profileCompleted: false,
-          createdAt: serverTimestamp(),
-        });
+        // Create user document in Firestore with timeout
+        const firestorePromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firestore write timeout - falling back to demo mode')), 8000)
+        );
+        
+        await Promise.race([
+          setDoc(doc(db, 'users', user.uid), {
+            name,
+            email,
+            type: userType,
+            profileCompleted: false,
+            createdAt: serverTimestamp(),
+          }),
+          firestorePromise
+        ]);
 
         console.log('✅ Firestore document created successfully');
         
