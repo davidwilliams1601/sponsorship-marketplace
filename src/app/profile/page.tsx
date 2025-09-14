@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 
@@ -159,13 +161,95 @@ export default function ProfilePage() {
           router.push('/dashboard');
         }, 1500);
       } else {
-        // TODO: Real Firebase mode - update Firestore user document
-        setError('Profile update not yet implemented for Firebase mode');
+        // Real Firebase mode - update Firestore user document
+        console.log('=== FIREBASE PROFILE UPDATE ===');
+        console.log('User UID:', user?.uid);
+        console.log('Form data:', formData);
+        
+        const profileData = {
+          ...formData,
+          type: userData.type,
+          email: user?.email || formData.contactEmail,
+          profileCompleted: true,
+          updatedAt: serverTimestamp()
+        };
+        
+        console.log('Updating Firebase profile with:', profileData);
+        
+        const userDocRef = doc(db, 'users', user.uid);
+        
+        try {
+          // Try to update existing document first
+          await updateDoc(userDocRef, profileData);
+          console.log('Profile updated successfully with updateDoc');
+        } catch (updateError: any) {
+          console.log('updateDoc failed, trying setDoc:', updateError);
+          // If document doesn't exist, create it
+          if (updateError?.code === 'not-found') {
+            await setDoc(userDocRef, {
+              ...profileData,
+              createdAt: serverTimestamp()
+            });
+            console.log('Profile created successfully with setDoc');
+          } else {
+            throw updateError;
+          }
+        }
+        
+        setSuccess('Profile updated successfully!');
+        
+        // Redirect to dashboard after a moment
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500);
       }
       
     } catch (error: any) {
-      console.error('Error updating profile:', error);
-      setError('Failed to update profile. Please try again.');
+      console.error('=== PROFILE UPDATE ERROR ===');
+      console.error('Error details:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error code:', error?.code);
+      console.error('================================');
+      
+      let errorMessage = 'Failed to update profile. Please try again.';
+      
+      // Provide more specific error messages and auto-fallback
+      if (error?.code === 'permission-denied') {
+        errorMessage = 'Permission denied. Please ensure you are logged in properly.';
+      } else if (error?.code === 'network-request-failed') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error?.code === 'unavailable' || error?.message?.includes('Cloud Firestore backend') || error?.message?.includes('Firebase')) {
+        errorMessage = 'Database connection failed. Trying demo mode...';
+        
+        // Auto-fallback to demo mode on Firebase errors
+        try {
+          console.log('Auto-falling back to demo mode for profile update...');
+          const demoUserData = {
+            uid: user?.uid || 'demo_user',
+            email: user?.email || formData.contactEmail,
+            type: userData.type,
+            ...formData,
+            profileCompleted: true,
+            updatedAt: new Date().toISOString()
+          };
+          
+          localStorage.setItem('sponsorconnect_user', JSON.stringify(demoUserData));
+          
+          console.log('✅ Auto-fallback to demo mode successful');
+          setSuccess('Profile saved successfully in demo mode!');
+          
+          // Redirect to dashboard after a moment
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 1500);
+          return;
+        } catch (fallbackError) {
+          console.error('Demo mode fallback also failed:', fallbackError);
+          errorMessage = 'Both Firebase and demo mode failed. Please refresh and try again.';
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
