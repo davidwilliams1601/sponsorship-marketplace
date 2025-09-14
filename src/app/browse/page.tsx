@@ -127,13 +127,28 @@ export default function BrowsePage() {
         }
       ];
       
-      setSponsorships(mockSponsorships);
+      // Also load user-created sponsorships from localStorage
+      try {
+        const userCreatedRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+        console.log('Loading user-created sponsorships for browse page:', userCreatedRequests.length);
+        
+        // Combine mock sponsorships with user-created ones
+        const allSponsorships = [...mockSponsorships, ...userCreatedRequests];
+        console.log('Total sponsorships in browse page:', allSponsorships.length);
+        
+        setSponsorships(allSponsorships);
+      } catch (error) {
+        console.error('Error loading user sponsorships for browse:', error);
+        // Fallback to just mock data
+        setSponsorships(mockSponsorships);
+      }
+      
       setLoading(false);
     } else {
       // Real Firebase mode
       const q = query(
         collection(db, 'sponsorships'),
-        where('status', '==', 'active'),
+        where('status', 'in', ['active', 'pending']), // Include both active and pending sponsorships
         orderBy('createdAt', 'desc'),
         limit(100)
       );
