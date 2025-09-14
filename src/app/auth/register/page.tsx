@@ -37,30 +37,83 @@ function RegisterForm() {
         return;
       }
 
-      // Skip Firebase due to persistent connection issues - go straight to demo mode
-      console.log('=== USING DEMO MODE FOR REGISTRATION ===');
-      console.log('Firebase connection issues detected - using demo mode directly');
-      
-      if (email.includes('@') && password.length >= 3 && name.trim()) {
-        const demoData = {
-          email: email,
-          type: userType,
-          name: name.trim(),
-          profileCompleted: false,
-          createdAt: new Date().toISOString()
-        };
+      // Try Firebase registration first with timeout and better error handling
+      try {
+        console.log('=== ATTEMPTING FIREBASE REGISTRATION ===');
         
-        console.log('Setting demo mode registration data:', demoData);
-        localStorage.setItem('sponsorconnect_user', JSON.stringify(demoData));
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firebase registration timeout')), 8000)
+        );
         
-        setError('Firebase unavailable - using demo mode for registration.');
+        const userCredential = await Promise.race([
+          createUserWithEmailAndPassword(auth, email, password),
+          timeoutPromise
+        ]) as any;
         
-        // Small delay to show the message, then redirect
-        setTimeout(() => {
-          console.log('Demo mode: redirecting to dashboard...');
-          router.push('/dashboard');
-        }, 1500);
+        console.log('✅ Firebase registration successful:', userCredential.user.email);
+        
+        // Create user document in Firestore with timeout
+        const firestoreTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firestore write timeout')), 5000)
+        );
+        
+        await Promise.race([
+          setDoc(doc(db, 'users', userCredential.user.uid), {
+            name,
+            email,
+            type: userType,
+            profileCompleted: false,
+            createdAt: serverTimestamp(),
+          }),
+          firestoreTimeoutPromise
+        ]);
+
+        console.log('✅ Firestore document created successfully');
+        
+        // Clear any demo mode data
+        localStorage.removeItem('sponsorconnect_user');
+        
+        console.log('Redirecting to dashboard...');
+        router.push('/dashboard');
         return;
+
+      } catch (firebaseError: any) {
+        console.log('=== FIREBASE REGISTRATION FAILED ===');
+        console.error('Firebase error:', firebaseError);
+        
+        // Firebase failed, fall back to demo mode
+        console.log('=== FALLING BACK TO DEMO MODE ===');
+        
+        let errorMessage = 'Firebase registration failed. Using demo mode.';
+        if (firebaseError.message?.includes('timeout')) {
+          errorMessage = 'Firebase connection timeout. Using demo mode.';
+        } else if (firebaseError.code) {
+          errorMessage = `Firebase error (${firebaseError.code}). Using demo mode.`;
+        }
+        
+        setError(errorMessage);
+        
+        // Demo mode fallback
+        if (email.includes('@') && password.length >= 3 && name.trim()) {
+          const demoData = {
+            email: email,
+            type: userType,
+            name: name.trim(),
+            profileCompleted: false,
+            createdAt: new Date().toISOString()
+          };
+          
+          console.log('Setting demo mode registration data:', demoData);
+          localStorage.setItem('sponsorconnect_user', JSON.stringify(demoData));
+          
+          // Small delay to show the error message
+          setTimeout(() => {
+            console.log('Demo mode: redirecting to dashboard...');
+            router.push('/dashboard');
+          }, 2000);
+          return;
+        }
       }
       
       console.log('❌ Registration validation failed');
@@ -88,10 +141,10 @@ function RegisterForm() {
           <p className="mt-2 text-center text-sm text-gray-600">
             Register as a {userType === 'club' ? 'Sports Club' : 'Business'}
           </p>
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-sm text-yellow-700">
-              <strong>Demo Mode Active:</strong> Firebase connection issues detected. 
-              Registration will use demo mode for demonstration purposes.
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-700">
+              <strong>Firebase Authentication:</strong> Attempting Firebase registration first. 
+              Will automatically fall back to demo mode if Firebase is unavailable.
             </p>
           </div>
         </div>
