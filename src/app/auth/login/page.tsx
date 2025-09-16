@@ -28,14 +28,24 @@ export default function LoginPage() {
         return;
       }
 
-      // Try Firebase authentication first
+      // Try Firebase authentication first with timeout
       try {
         console.log('=== ATTEMPTING FIREBASE AUTH ===');
         const { signInWithEmailAndPassword } = await import('firebase/auth');
         const { auth } = await import('@/lib/firebase');
         
         console.log('Firebase modules loaded, attempting login...');
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firebase login timeout')), 8000)
+        );
+        
+        const userCredential = await Promise.race([
+          signInWithEmailAndPassword(auth, email, password),
+          timeoutPromise
+        ]) as any;
+        
         console.log('✅ Firebase authentication successful:', userCredential.user.email);
         console.log('User UID:', userCredential.user.uid);
         
@@ -62,20 +72,37 @@ export default function LoginPage() {
             const { auth, db } = await import('@/lib/firebase');
             
             console.log('Creating new Firebase user...');
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            
+            // Add timeout for user creation
+            const createTimeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Firebase user creation timeout')), 8000)
+            );
+            
+            const userCredential = await Promise.race([
+              createUserWithEmailAndPassword(auth, email, password),
+              createTimeoutPromise
+            ]) as any;
+            
             console.log('✅ New Firebase user created:', userCredential.user.email);
             
-            // Create user document in Firestore
+            // Create user document in Firestore with timeout
             const userType = email.includes('club') ? 'club' : 'business';
             console.log('Creating Firestore document with type:', userType);
             
-            await setDoc(doc(db, 'users', userCredential.user.uid), {
-              name: email.split('@')[0],
-              email: email,
-              type: userType,
-              profileCompleted: false,
-              createdAt: new Date()
-            });
+            const firestoreTimeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Firestore write timeout')), 5000)
+            );
+            
+            await Promise.race([
+              setDoc(doc(db, 'users', userCredential.user.uid), {
+                name: email.split('@')[0],
+                email: email,
+                type: userType,
+                profileCompleted: false,
+                createdAt: new Date()
+              }),
+              firestoreTimeoutPromise
+            ]);
             
             console.log('✅ Firestore document created successfully');
             
@@ -95,8 +122,16 @@ export default function LoginPage() {
         
         // Firebase failed, fall back to demo mode
         console.log('=== FALLING BACK TO DEMO MODE ===');
-        console.log('Firebase error code was:', firebaseError.code);
-        setError(`Firebase authentication unavailable (${firebaseError.code}). Using demo mode.`);
+        console.log('Firebase error was:', firebaseError.message || firebaseError.code);
+        
+        let errorMessage = 'Firebase authentication failed. Using demo mode.';
+        if (firebaseError.message?.includes('timeout')) {
+          errorMessage = 'Firebase connection timeout. Using demo mode.';
+        } else if (firebaseError.code) {
+          errorMessage = `Firebase error (${firebaseError.code}). Using demo mode.`;
+        }
+        
+        setError(errorMessage);
         
         // Demo mode fallback
         if (email.includes('@') && password.length >= 3) {
