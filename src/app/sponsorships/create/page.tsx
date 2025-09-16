@@ -87,11 +87,44 @@ export default function CreateSponsorshipPage() {
         return;
       }
 
-      // Always check for demo mode first
+      // Check for Firebase user first (prioritize Firebase over demo mode)
       const demoUser = localStorage.getItem('sponsorconnect_user');
-      console.log('Demo user check:', demoUser ? 'Demo mode detected' : 'No demo user found');
+      console.log('Demo user check:', demoUser ? 'Demo user exists' : 'No demo user found');
+      console.log('Firebase user:', user ? `Firebase user ${user.email}` : 'No Firebase user');
       
-      if (demoUser) {
+      // Prioritize Firebase if we have a real Firebase user
+      if (user && user.uid && !user.uid.startsWith('demo_')) {
+        console.log('=== USING FIREBASE MODE FOR SPONSORSHIP CREATION ===');
+        console.log('Firebase user detected, using Firebase mode');
+        
+        const sponsorshipData = {
+          ...formData,
+          amount: parseFloat(formData.amount),
+          clubId: user.uid,
+          clubName: userData?.name || 'Unknown Club',
+          status: 'pending',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          viewCount: 0,
+          interestedBusinesses: []
+        };
+        
+        console.log('Creating Firebase sponsorship data:', sponsorshipData);
+
+        // Add timeout to detect Firebase connection issues
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Firebase operation timeout - falling back to demo mode')), 10000)
+        );
+        
+        const docRef = await Promise.race([
+          addDoc(collection(db, 'sponsorships'), sponsorshipData),
+          timeoutPromise
+        ]);
+        
+        console.log('✅ Sponsorship created in Firebase with ID:', docRef.id);
+        router.push('/sponsorships/manage');
+        
+      } else if (demoUser) {
         console.log('=== USING DEMO MODE FOR SPONSORSHIP CREATION ===');
         // Demo mode: simulate creation and store locally
         const sponsorshipData = {
@@ -125,35 +158,10 @@ export default function CreateSponsorshipPage() {
         console.log('Redirecting to manage page...');
         router.push('/sponsorships/manage');
       } else {
-        // Real Firebase mode
-        console.log('=== USING FIREBASE MODE FOR SPONSORSHIP CREATION ===');
-        
-        const sponsorshipData = {
-          ...formData,
-          amount: parseFloat(formData.amount),
-          clubId: user?.uid || '',
-          clubName: userData?.name || 'Unknown Club',
-          status: 'pending', // Changed from 'active' to 'pending' to match Firestore rules
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          viewCount: 0,
-          interestedBusinesses: []
-        };
-        
-        console.log('Creating Firebase sponsorship data:', sponsorshipData);
-
-        // Add timeout to detect Firebase connection issues
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase operation timeout - falling back to demo mode')), 10000)
-        );
-        
-        const docRef = await Promise.race([
-          addDoc(collection(db, 'sponsorships'), sponsorshipData),
-          timeoutPromise
-        ]);
-        
-        console.log('Sponsorship created with ID:', docRef.id);
-        router.push('/sponsorships/manage');
+        console.log('No Firebase user and no demo user - this should not happen');
+        setError('Authentication error. Please log in again.');
+        setLoading(false);
+        return;
       }
       
     } catch (error: any) {
