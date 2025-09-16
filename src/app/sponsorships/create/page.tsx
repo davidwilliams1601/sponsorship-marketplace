@@ -97,6 +97,10 @@ export default function CreateSponsorshipPage() {
         console.log('=== USING FIREBASE MODE FOR SPONSORSHIP CREATION ===');
         console.log('Firebase user detected, using Firebase mode');
         
+        // Clear any demo mode data since we're using Firebase
+        localStorage.removeItem('sponsorconnect_user');
+        localStorage.removeItem('sponsorconnect_requests');
+        
         const sponsorshipData = {
           ...formData,
           amount: parseFloat(formData.amount),

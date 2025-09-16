@@ -70,32 +70,16 @@ export default function ManageSponsorshipsPage() {
     console.log('=== MANAGE PAGE LOADING SPONSORSHIPS ===');
     console.log('User:', user ? { uid: user.uid, email: user.email } : null);
 
-    // Check if we're in demo mode
+    // Check for Firebase user first (prioritize Firebase over demo mode)
     const demoUser = localStorage.getItem('sponsorconnect_user');
-    console.log('Demo user check:', demoUser ? 'Demo mode detected' : 'No demo user found');
+    console.log('Demo user check:', demoUser ? 'Demo user exists' : 'No demo user found');
+    console.log('Firebase user:', user ? `Firebase user ${user.email}` : 'No Firebase user');
     
-    if (demoUser) {
-      // Demo mode: load from localStorage
-      console.log('=== USING DEMO MODE FOR MANAGE PAGE ===');
-      const loadDemoRequests = () => {
-        try {
-          const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
-          console.log('Loaded demo requests:', existingRequests.length, 'requests');
-          console.log('Demo requests data:', existingRequests);
-          setSponsorships(existingRequests);
-          setLoading(false);
-        } catch (error) {
-          console.error('Error loading demo requests:', error);
-          setSponsorships([]);
-          setLoading(false);
-        }
-      };
-      
-      loadDemoRequests();
-    } else {
+    // Prioritize Firebase if we have a real Firebase user
+    if (user && user.uid && !user.uid.startsWith('demo_')) {
       // Real Firebase mode
       console.log('=== USING FIREBASE MODE FOR MANAGE PAGE ===');
-      console.log('Querying for clubId:', user.uid);
+      console.log('Firebase user detected, querying for clubId:', user.uid);
       
       const q = query(
         collection(db, 'sponsorships'),
@@ -126,6 +110,28 @@ export default function ManageSponsorshipsPage() {
       });
 
       return () => unsubscribe();
+      
+    } else if (demoUser) {
+      // Demo mode: load from localStorage
+      console.log('=== USING DEMO MODE FOR MANAGE PAGE ===');
+      const loadDemoRequests = () => {
+        try {
+          const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
+          console.log('Loaded demo requests:', existingRequests.length, 'requests');
+          console.log('Demo requests data:', existingRequests);
+          setSponsorships(existingRequests);
+          setLoading(false);
+        } catch (error) {
+          console.error('Error loading demo requests:', error);
+          setSponsorships([]);
+          setLoading(false);
+        }
+      };
+      
+      loadDemoRequests();
+    } else {
+      console.log('No Firebase user and no demo user - this should not happen');
+      setLoading(false);
     }
   }, [user]);
 
