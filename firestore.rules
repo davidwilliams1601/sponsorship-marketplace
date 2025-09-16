@@ -48,7 +48,9 @@ service cloud.firestore {
                        isValidEmail(request.resource.data.email) &&
                        request.resource.data.name is string &&
                        request.resource.data.name.size() > 0 &&
-                       request.resource.data.profileCompleted is bool;
+                       request.resource.data.profileCompleted is bool &&
+                       // Allow createdAt timestamp field
+                       ('createdAt' in request.resource.data);
       
       // Users can update their own profile, admins can update any
       allow update: if (isOwner(userId) || isAdmin()) &&
