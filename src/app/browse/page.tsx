@@ -59,29 +59,120 @@ export default function BrowsePage() {
   useEffect(() => {
     console.log('=== BROWSE PAGE LOADING ===');
     console.log('User type:', userData?.type);
+    console.log('User UID:', user?.uid);
     
     // Check if we're in demo mode (localStorage user exists)
     const demoUser = localStorage.getItem('sponsorconnect_user');
+    console.log('Demo user check:', demoUser ? 'Demo mode detected' : 'Firebase mode');
     
     if (demoUser) {
       // Demo mode: show different content based on user type
       if (userData?.type === 'business') {
-        console.log('Loading sponsorship requests for business user');
-        // Businesses see sponsorship REQUESTS (what clubs need funding for)
+        console.log('Loading sponsorship requests for business user (DEMO MODE)');
         loadSponsorshipRequestsForBusiness();
       } else if (userData?.type === 'club') {
-        console.log('Loading sponsorship opportunities for club user');
-        // Clubs see sponsorship OPPORTUNITIES (what businesses are offering)
+        console.log('Loading sponsorship opportunities for club user (DEMO MODE)');
         loadSponsorshipOpportunitiesForClub();
       } else {
         console.log('Unknown user type, loading default content');
-        loadSponsorshipRequestsForBusiness(); // Default to business view
+        loadSponsorshipRequestsForBusiness();
       }
     } else {
-      // Real Firebase mode - implement later
-      setLoading(false);
+      // Real Firebase mode
+      console.log('=== USING FIREBASE MODE FOR BROWSE PAGE ===');
+      if (userData?.type === 'business') {
+        console.log('Loading sponsorship requests for business user (FIREBASE MODE)');
+        loadFirebaseSponsorshipRequestsForBusiness();
+      } else if (userData?.type === 'club') {
+        console.log('Loading sponsorship opportunities for club user (FIREBASE MODE)');
+        loadFirebaseSponsorshipOpportunitiesForClub();
+      } else {
+        console.log('User type not yet loaded, waiting...');
+        // Wait for userData to load
+        if (user && !userData) {
+          return; // Still loading user data
+        }
+        setLoading(false);
+      }
     }
-  }, [userData?.type]);
+  }, [user, userData?.type]);
+
+  const loadFirebaseSponsorshipRequestsForBusiness = () => {
+    // Load real sponsorship requests from Firestore for businesses
+    console.log('Loading sponsorship requests from Firestore...');
+    
+    const q = query(
+      collection(db, 'sponsorships'),
+      where('status', 'in', ['active', 'pending']),
+      orderBy('createdAt', 'desc'),
+      limit(100)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      console.log('Firebase query returned:', querySnapshot.size, 'sponsorships');
+      const sponsorshipsList: Sponsorship[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log('Found Firebase sponsorship:', doc.id, data.title);
+        sponsorshipsList.push({
+          id: doc.id,
+          ...data
+        } as Sponsorship);
+      });
+      console.log('Total Firebase sponsorships for business:', sponsorshipsList.length);
+      setSponsorships(sponsorshipsList);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching Firebase sponsorships:', error);
+      // Fallback to empty list
+      setSponsorships([]);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  };
+
+  const loadFirebaseSponsorshipOpportunitiesForClub = () => {
+    // For now, clubs see mock opportunities since businesses don't create "opportunities" yet
+    // In the future, this would load from a "opportunities" collection or similar
+    console.log('Loading sponsorship opportunities for clubs (mock data for now)...');
+    
+    const mockOpportunities: Sponsorship[] = [
+      {
+        id: 'firebase_opp1',
+        title: 'Tech Company Community Investment',
+        description: 'InnovateTech is looking to sponsor local sports clubs. We offer technology support, branded equipment, and financial backing for community teams.',
+        category: 'general',
+        amount: 3500,
+        urgency: 'medium',
+        status: 'active',
+        createdAt: { seconds: Date.now() / 1000 - 86400 * 2 },
+        location: 'Manchester',
+        viewCount: 45,
+        interestedBusinesses: [],
+        clubId: 'innovatetech_business',
+        clubName: 'InnovateTech Ltd'
+      },
+      {
+        id: 'firebase_opp2',
+        title: 'Local Gym Partnership Program',
+        description: 'FitLife Gym wants to partner with sports clubs. We provide training facilities, fitness assessments, and sports science support.',
+        category: 'training',
+        amount: 2000,
+        urgency: 'low',
+        status: 'active',
+        createdAt: { seconds: Date.now() / 1000 - 86400 * 4 },
+        location: 'Birmingham',
+        viewCount: 32,
+        interestedBusinesses: [],
+        clubId: 'fitlife_business',
+        clubName: 'FitLife Gym'
+      }
+    ];
+    
+    setSponsorships(mockOpportunities);
+    setLoading(false);
+  };
 
   const loadSponsorshipRequestsForBusiness = () => {
     // Mock sponsorship requests from clubs (for businesses to sponsor)
