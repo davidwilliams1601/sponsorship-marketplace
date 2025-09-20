@@ -39,7 +39,7 @@ const URGENCY_STYLES: { [key: string]: string } = {
 };
 
 const STATUS_STYLES: { [key: string]: string } = {
-  pending: 'bg-yellow-100 text-yellow-800', // Added pending status
+  pending: 'bg-yellow-100 text-yellow-800',
   active: 'bg-blue-100 text-blue-800',
   funded: 'bg-green-100 text-green-800',
   paused: 'bg-gray-100 text-gray-800',
@@ -53,34 +53,13 @@ export default function ManageSponsorshipsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Redirect if not a club
-  if (userData && userData.type !== 'club') {
-    router.push('/dashboard');
-    return null;
-  }
-
-  if (!user) {
-    router.push('/auth/login');
-    return null;
-  }
-
   useEffect(() => {
     if (!user) return;
 
     console.log('=== MANAGE PAGE LOADING SPONSORSHIPS ===');
     console.log('User:', user ? { uid: user.uid, email: user.email } : null);
 
-    // Check for Firebase user first (prioritize Firebase over demo mode)
-    const demoUser = localStorage.getItem('sponsorconnect_user');
-    console.log('Demo user check:', demoUser ? 'Demo user exists' : 'No demo user found');
-    console.log('Firebase user:', user ? `Firebase user ${user.email}` : 'No Firebase user');
-    
-    // Prioritize Firebase if we have a real Firebase user
-    if (user && user.uid && !user.uid.startsWith('demo_')) {
-      // Real Firebase mode
-      console.log('=== USING FIREBASE MODE FOR MANAGE PAGE ===');
-      console.log('Firebase user detected, querying for clubId:', user.uid);
-      
+    try {
       const q = query(
         collection(db, 'sponsorships'),
         where('clubId', '==', user.uid),
@@ -88,49 +67,33 @@ export default function ManageSponsorshipsPage() {
       );
 
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        console.log('Firebase query returned:', querySnapshot.size, 'documents');
+        console.log('Firebase query returned:', querySnapshot.size, 'sponsorships');
         const sponsorshipsList: Sponsorship[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          console.log('Found sponsorship:', doc.id, data);
+          console.log('Found sponsorship:', doc.id, data.title);
           sponsorshipsList.push({
             id: doc.id,
             ...data
           } as Sponsorship);
         });
+
         console.log('Final sponsorships list:', sponsorshipsList);
         setSponsorships(sponsorshipsList);
         setLoading(false);
       }, (error) => {
         console.error('=== FIREBASE QUERY ERROR ===');
         console.error('Error details:', error);
-        console.error('Error code:', error?.code);
-        console.error('Error message:', error?.message);
+        setSponsorships([]);
         setLoading(false);
       });
 
       return () => unsubscribe();
-      
-    } else if (demoUser) {
-      // Demo mode: load from localStorage
-      console.log('=== USING DEMO MODE FOR MANAGE PAGE ===');
-      const loadDemoRequests = () => {
-        try {
-          const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
-          console.log('Loaded demo requests:', existingRequests.length, 'requests');
-          console.log('Demo requests data:', existingRequests);
-          setSponsorships(existingRequests);
-          setLoading(false);
-        } catch (error) {
-          console.error('Error loading demo requests:', error);
-          setSponsorships([]);
-          setLoading(false);
-        }
-      };
-      
-      loadDemoRequests();
-    } else {
-      console.log('No Firebase user and no demo user - this should not happen');
+
+    } catch (queryError) {
+      console.error('=== FIREBASE QUERY SETUP ERROR ===');
+      console.error('Query creation failed:', queryError);
+      setSponsorships([]);
       setLoading(false);
     }
   }, [user]);
@@ -141,23 +104,10 @@ export default function ManageSponsorshipsPage() {
     }
 
     setDeleting(id);
-    
+
     try {
-      // Check if we're in demo mode
-      const demoUser = localStorage.getItem('sponsorconnect_user');
-      
-      if (demoUser) {
-        // Demo mode: remove from localStorage
-        const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
-        const updatedRequests = existingRequests.filter((req: any) => req.id !== id);
-        localStorage.setItem('sponsorconnect_requests', JSON.stringify(updatedRequests));
-        
-        // Update local state
-        setSponsorships(updatedRequests);
-      } else {
-        // Real Firebase mode
-        await deleteDoc(doc(db, 'sponsorships', id));
-      }
+      await deleteDoc(doc(db, 'sponsorships', id));
+      console.log('Sponsorship deleted successfully');
     } catch (error) {
       console.error('Error deleting sponsorship:', error);
       alert('Failed to delete sponsorship request');
@@ -171,19 +121,19 @@ export default function ManageSponsorshipsPage() {
     return new Date(timestamp.seconds * 1000).toLocaleDateString();
   };
 
-  const formatDeadline = (deadline: string) => {
-    if (!deadline) return null;
-    const deadlineDate = new Date(deadline);
-    const now = new Date();
-    const diffTime = deadlineDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) return { text: 'Overdue', color: 'text-red-600' };
-    if (diffDays === 0) return { text: 'Today', color: 'text-red-600' };
-    if (diffDays === 1) return { text: '1 day left', color: 'text-yellow-600' };
-    if (diffDays <= 7) return { text: `${diffDays} days left`, color: 'text-yellow-600' };
-    return { text: `${diffDays} days left`, color: 'text-gray-600' };
-  };
+  if (!userData || userData.type !== 'club') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+          <p className="text-gray-600 mb-6">This page is only available to sports clubs.</p>
+          <Link href="/dashboard" className="btn-primary">
+            Go to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -204,120 +154,87 @@ export default function ManageSponsorshipsPage() {
           <p className="mt-2 text-gray-600">
             Manage your active sponsorship requests and track their performance.
           </p>
-          {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <p className="text-sm text-yellow-700">
-                <strong>Demo Mode:</strong> Your sponsorship requests are stored locally for demonstration purposes while Firebase connection issues are being resolved.
-              </p>
-            </div>
-          )}
         </div>
 
+        {/* Create New Button */}
+        <div className="mb-6">
+          <Link
+            href="/sponsorships/create"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            + Create New Request
+          </Link>
+        </div>
+
+        {/* Sponsorships List */}
         {sponsorships.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="bg-white rounded-lg shadow p-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                No Sponsorship Requests Yet
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Create your first sponsorship request to start attracting local business sponsors.
-              </p>
-              <Link href="/sponsorships/create" className="btn-primary">
-                Create Your First Request
-              </Link>
-            </div>
+          <div className="text-center py-12 bg-white rounded-lg shadow">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              No sponsorship requests yet
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Create your first sponsorship request to start connecting with local businesses.
+            </p>
+            <Link
+              href="/sponsorships/create"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            >
+              Create Your First Request
+            </Link>
           </div>
         ) : (
           <div className="grid gap-6">
-            {sponsorships.map((sponsorship) => {
-              const deadline = sponsorship.deadline ? formatDeadline(sponsorship.deadline) : null;
-              
-              return (
-                <div key={sponsorship.id} className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-xl font-semibold text-gray-900">
-                          {sponsorship.title}
-                        </h3>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${STATUS_STYLES[sponsorship.status]}`}>
-                          {sponsorship.status.charAt(0).toUpperCase() + sponsorship.status.slice(1)}
-                        </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${URGENCY_STYLES[sponsorship.urgency]}`}>
-                          {sponsorship.urgency === 'low' ? 'Not Urgent' : 
-                           sponsorship.urgency === 'medium' ? 'Moderate' : 'Urgent'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
-                        <span className="font-medium">£{sponsorship.amount.toLocaleString()}</span>
-                        <span>•</span>
-                        <span>{CATEGORY_LABELS[sponsorship.category]}</span>
-                        <span>•</span>
-                        <span>{sponsorship.viewCount} views</span>
-                        {sponsorship.interestedBusinesses.length > 0 && (
-                          <>
-                            <span>•</span>
-                            <span className="text-green-600 font-medium">
-                              {sponsorship.interestedBusinesses.length} interested
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      <p className="text-gray-700 mb-3 line-clamp-2">
-                        {sponsorship.description}
-                      </p>
-
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span>Created {formatDate(sponsorship.createdAt)}</span>
-                        {deadline && (
-                          <>
-                            <span>•</span>
-                            <span className={deadline.color}>
-                              {deadline.text}
-                            </span>
-                          </>
-                        )}
-                      </div>
+            {sponsorships.map((sponsorship) => (
+              <div key={sponsorship.id} className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      {sponsorship.title}
+                    </h3>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                      <span className="font-medium text-lg text-gray-900">
+                        £{sponsorship.amount.toLocaleString()}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${CATEGORY_LABELS[sponsorship.category]}`}>
+                        {CATEGORY_LABELS[sponsorship.category]}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${URGENCY_STYLES[sponsorship.urgency]}`}>
+                        {sponsorship.urgency === 'low' ? 'Not Urgent' :
+                         sponsorship.urgency === 'medium' ? 'Moderate' : 'Urgent'}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_STYLES[sponsorship.status]}`}>
+                        {sponsorship.status.charAt(0).toUpperCase() + sponsorship.status.slice(1)}
+                      </span>
                     </div>
-
-                    <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col sm:flex-row lg:flex-col space-y-2 sm:space-y-0 sm:space-x-3 lg:space-x-0 lg:space-y-2">
-                      <Link
-                        href={`/sponsorships/${sponsorship.id}`}
-                        className="btn-primary text-center text-sm"
-                      >
-                        View Details
-                      </Link>
-                      <Link
-                        href={`/sponsorships/${sponsorship.id}/edit`}
-                        className="btn-secondary text-center text-sm"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(sponsorship.id)}
-                        disabled={deleting === sponsorship.id}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
-                      >
-                        {deleting === sponsorship.id ? 'Deleting...' : 'Delete'}
-                      </button>
+                    <p className="text-gray-700 mb-3 line-clamp-2">
+                      {sponsorship.description}
+                    </p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <span>Posted {formatDate(sponsorship.createdAt)}</span>
+                      <span>•</span>
+                      <span>{sponsorship.viewCount || 0} views</span>
+                      <span>•</span>
+                      <span>{sponsorship.interestedBusinesses?.length || 0} interested</span>
                     </div>
                   </div>
+                  <div className="flex flex-col space-y-2 ml-6">
+                    <Link
+                      href={`/sponsorships/${sponsorship.id}`}
+                      className="btn-secondary text-center text-sm"
+                    >
+                      View Details
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(sponsorship.id)}
+                      disabled={deleting === sponsorship.id}
+                      className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+                    >
+                      {deleting === sponsorship.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {sponsorships.length > 0 && (
-          <div className="mt-8 text-center">
-            <Link
-              href="/sponsorships/create"
-              className="btn-primary"
-            >
-              Create Another Request
-            </Link>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -71,8 +71,6 @@ function RegisterForm() {
 
         console.log('✅ Firestore document created successfully');
         
-        // Clear any demo mode data
-        localStorage.removeItem('sponsorconnect_user');
         
         console.log('Redirecting to dashboard...');
         router.push('/dashboard');
@@ -82,38 +80,19 @@ function RegisterForm() {
         console.log('=== FIREBASE REGISTRATION FAILED ===');
         console.error('Firebase error:', firebaseError);
         
-        // Firebase failed, fall back to demo mode
-        console.log('=== FALLING BACK TO DEMO MODE ===');
-        
-        let errorMessage = 'Firebase registration failed. Using demo mode.';
-        if (firebaseError.message?.includes('timeout')) {
-          errorMessage = 'Firebase connection timeout. Using demo mode.';
-        } else if (firebaseError.code) {
-          errorMessage = `Firebase error (${firebaseError.code}). Using demo mode.`;
+        // Firebase registration failed
+        console.log('=== FIREBASE REGISTRATION FAILED ===');
+
+        let errorMessage = 'Registration failed. Please try again.';
+        if (firebaseError.code === 'auth/email-already-in-use') {
+          errorMessage = 'An account with this email already exists. Please sign in instead.';
+        } else if (firebaseError.code === 'auth/weak-password') {
+          errorMessage = 'Password is too weak. Please choose a stronger password.';
+        } else if (firebaseError.code === 'auth/invalid-email') {
+          errorMessage = 'Invalid email address.';
         }
-        
+
         setError(errorMessage);
-        
-        // Demo mode fallback
-        if (email.includes('@') && password.length >= 3 && name.trim()) {
-          const demoData = {
-            email: email,
-            type: userType,
-            name: name.trim(),
-            profileCompleted: false,
-            createdAt: new Date().toISOString()
-          };
-          
-          console.log('Setting demo mode registration data:', demoData);
-          localStorage.setItem('sponsorconnect_user', JSON.stringify(demoData));
-          
-          // Small delay to show the error message
-          setTimeout(() => {
-            console.log('Demo mode: redirecting to dashboard...');
-            router.push('/dashboard');
-          }, 2000);
-          return;
-        }
       }
       
       console.log('❌ Registration validation failed');
@@ -141,12 +120,6 @@ function RegisterForm() {
           <p className="mt-2 text-center text-sm text-gray-600">
             Register as a {userType === 'club' ? 'Sports Club' : 'Business'}
           </p>
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-700">
-              <strong>Firebase Authentication:</strong> Attempting Firebase registration first. 
-              Will automatically fall back to demo mode if Firebase is unavailable.
-            </p>
-          </div>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (

@@ -87,86 +87,35 @@ export default function CreateSponsorshipPage() {
         return;
       }
 
-      // Check for Firebase user first (prioritize Firebase over demo mode)
-      const demoUser = localStorage.getItem('sponsorconnect_user');
-      console.log('Demo user check:', demoUser ? 'Demo user exists' : 'No demo user found');
-      console.log('Firebase user:', user ? `Firebase user ${user.email}` : 'No Firebase user');
-      
-      // Prioritize Firebase if we have a real Firebase user
-      if (user && user.uid && !user.uid.startsWith('demo_')) {
-        console.log('=== USING FIREBASE MODE FOR SPONSORSHIP CREATION ===');
-        console.log('Firebase user detected, using Firebase mode');
-        
-        // Clear any demo mode data since we're using Firebase
-        localStorage.removeItem('sponsorconnect_user');
-        localStorage.removeItem('sponsorconnect_requests');
-        
-        const sponsorshipData = {
-          ...formData,
-          amount: parseFloat(formData.amount),
-          clubId: user.uid,
-          clubName: userData?.name || 'Unknown Club',
-          status: 'pending',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          viewCount: 0,
-          interestedBusinesses: []
-        };
-        
-        console.log('Creating Firebase sponsorship data:', sponsorshipData);
+      console.log('=== CREATING FIREBASE SPONSORSHIP ===');
+      console.log('User UID:', user?.uid);
+      console.log('User email:', user?.email);
+      console.log('User type:', userData?.type);
 
-        // Add timeout to detect Firebase connection issues
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Firebase operation timeout - falling back to demo mode')), 10000)
-        );
-        
-        const docRef = await Promise.race([
-          addDoc(collection(db, 'sponsorships'), sponsorshipData),
-          timeoutPromise
-        ]);
-        
-        console.log('✅ Sponsorship created in Firebase with ID:', docRef.id);
-        router.push('/sponsorships/manage');
-        
-      } else if (demoUser) {
-        console.log('=== USING DEMO MODE FOR SPONSORSHIP CREATION ===');
-        // Demo mode: simulate creation and store locally
-        const sponsorshipData = {
-          id: `demo_${Date.now()}`,
-          ...formData,
-          amount: parseFloat(formData.amount),
-          clubId: user?.uid || 'demo_club',
-          clubName: userData?.name || 'Demo Club',
-          status: 'pending', // Changed to match Firebase rules and provide consistency
-          createdAt: { seconds: Date.now() / 1000 },
-          updatedAt: { seconds: Date.now() / 1000 },
-          viewCount: 0,
-          interestedBusinesses: []
-        };
-
-        console.log('Creating sponsorship data:', sponsorshipData);
-
-        // Store in localStorage for demo mode
-        const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
-        console.log('Existing requests:', existingRequests.length);
-        
-        existingRequests.push(sponsorshipData);
-        localStorage.setItem('sponsorconnect_requests', JSON.stringify(existingRequests));
-        
-        console.log('✅ Demo sponsorship saved to localStorage');
-        console.log('Total requests now:', existingRequests.length);
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        console.log('Redirecting to manage page...');
-        router.push('/sponsorships/manage');
-      } else {
-        console.log('No Firebase user and no demo user - this should not happen');
+      if (!user || !user.uid) {
         setError('Authentication error. Please log in again.');
         setLoading(false);
         return;
       }
+
+      const sponsorshipData = {
+        ...formData,
+        amount: parseFloat(formData.amount),
+        clubId: user.uid,
+        clubName: userData?.name || 'Unknown Club',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        viewCount: 0,
+        interestedBusinesses: []
+      };
+
+      console.log('Sponsorship data:', sponsorshipData);
+
+      const docRef = await addDoc(collection(db, 'sponsorships'), sponsorshipData);
+
+      console.log('✅ Sponsorship created in Firebase with ID:', docRef.id);
+      router.push('/sponsorships/manage');
       
     } catch (error: any) {
       console.error('=== SPONSORSHIP CREATION ERROR ===');
@@ -186,35 +135,7 @@ export default function CreateSponsorshipPage() {
       } else if (error?.code === 'network-request-failed') {
         errorMessage = 'Network error. Please check your connection and try again.';
       } else if (error?.code === 'unavailable' || error?.message?.includes('Cloud Firestore backend') || error?.message?.includes('Firebase')) {
-        errorMessage = 'Database connection failed. Trying demo mode...';
-        
-        // Auto-fallback to demo mode on Firebase errors
-        try {
-          console.log('Auto-falling back to demo mode...');
-          const sponsorshipData = {
-            id: `demo_fallback_${Date.now()}`,
-            ...formData,
-            amount: parseFloat(formData.amount),
-            clubId: user?.uid || 'demo_club',
-            clubName: userData?.name || 'Demo Club',
-            status: 'pending', // Consistent status across all modes
-            createdAt: { seconds: Date.now() / 1000 },
-            updatedAt: { seconds: Date.now() / 1000 },
-            viewCount: 0,
-            interestedBusinesses: []
-          };
-
-          const existingRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
-          existingRequests.push(sponsorshipData);
-          localStorage.setItem('sponsorconnect_requests', JSON.stringify(existingRequests));
-          
-          console.log('✅ Auto-fallback to demo mode successful');
-          router.push('/sponsorships/manage');
-          return;
-        } catch (fallbackError) {
-          console.error('Demo mode fallback also failed:', fallbackError);
-          errorMessage = 'Both Firebase and demo mode failed. Please refresh and try again.';
-        }
+        errorMessage = 'Database connection failed. Please check your connection and try again.';
       }
       
       setError(errorMessage);
@@ -241,13 +162,6 @@ export default function CreateSponsorshipPage() {
           <p className="mt-2 text-gray-600">
             Create a detailed sponsorship request to attract local businesses to support your club.
           </p>
-          {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <p className="text-sm text-yellow-700">
-                <strong>Demo Mode:</strong> Your sponsorship request will be saved locally for demonstration purposes while Firebase connection issues are being resolved.
-              </p>
-            </div>
-          )}
         </div>
 
         {error && (

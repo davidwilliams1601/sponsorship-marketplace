@@ -51,17 +51,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!isHydrated) return; // Wait for hydration to complete
-    // Always set up Firebase auth listener first
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // Firebase user exists - use Firebase auth
           console.log('Firebase user detected:', firebaseUser.email);
           setUser(firebaseUser);
-          
-          // Clear any demo mode data since we have a real Firebase user
-          localStorage.removeItem('sponsorconnect_user');
-          
+
           // Fetch user data from Firestore
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
@@ -73,41 +69,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUserData(null);
           }
         } else {
-          // No Firebase user - check for demo mode
-          console.log('No Firebase user, checking demo mode...');
-          
-          try {
-            const demoUser = localStorage.getItem('sponsorconnect_user');
-            if (demoUser) {
-              console.log('Demo user detected, using demo mode');
-              const userData = JSON.parse(demoUser);
-              
-              // Create a mock user object for demo mode
-              const mockUser = {
-                uid: `demo_${userData.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-                email: userData.email,
-                displayName: userData.name,
-              } as User;
-              
-              setUser(mockUser);
-              setUserData({
-                name: userData.name,
-                email: userData.email,
-                type: userData.type,
-                profileCompleted: userData.profileCompleted || false,
-                createdAt: userData.createdAt || new Date(),
-                ...userData
-              });
-            } else {
-              console.log('No demo user found');
-              setUser(null);
-              setUserData(null);
-            }
-          } catch (error) {
-            console.error('Error checking demo user:', error);
-            setUser(null);
-            setUserData(null);
-          }
+          console.log('No Firebase user found');
+          setUser(null);
+          setUserData(null);
         }
       } catch (error) {
         console.error('Error in auth state change:', error);
@@ -123,34 +87,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshUserData = async () => {
     if (!user) return;
-    
+
     try {
       console.log('Refreshing user data for:', user.email);
-      
-      // Check if we're in demo mode
-      const demoUser = localStorage.getItem('sponsorconnect_user');
-      
-      if (demoUser) {
-        // Demo mode - reload from localStorage
-        console.log('Refreshing demo user data');
-        const userData = JSON.parse(demoUser);
-        setUserData({
-          name: userData.name,
-          email: userData.email,
-          type: userData.type,
-          profileCompleted: userData.profileCompleted || false,
-          createdAt: userData.createdAt || new Date(),
-          ...userData
-        });
-      } else {
-        // Firebase mode - reload from Firestore
-        console.log('Refreshing Firebase user data');
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as UserData;
-          console.log('Refreshed user data:', userData);
-          setUserData(userData);
-        }
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as UserData;
+        console.log('Refreshed user data:', userData);
+        setUserData(userData);
       }
     } catch (error) {
       console.error('Error refreshing user data:', error);
@@ -159,16 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
-      // Clear demo mode data
-      localStorage.removeItem('sponsorconnect_user');
-      
-      // Try Firebase signout (may fail in demo mode)
-      try {
-        await auth.signOut();
-      } catch (error) {
-        console.warn('Firebase signout failed (demo mode):', error);
-      }
-      
+      await auth.signOut();
       setUser(null);
       setUserData(null);
     } catch (error) {

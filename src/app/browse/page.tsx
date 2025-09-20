@@ -60,40 +60,20 @@ export default function BrowsePage() {
     console.log('=== BROWSE PAGE LOADING ===');
     console.log('User type:', userData?.type);
     console.log('User UID:', user?.uid);
-    
-    // Check if we're in demo mode (localStorage user exists)
-    const demoUser = localStorage.getItem('sponsorconnect_user');
-    console.log('Demo user check:', demoUser ? 'Demo mode detected' : 'Firebase mode');
-    
-    if (demoUser) {
-      // Demo mode: show different content based on user type
-      if (userData?.type === 'business') {
-        console.log('Loading sponsorship requests for business user (DEMO MODE)');
-        loadSponsorshipRequestsForBusiness();
-      } else if (userData?.type === 'club') {
-        console.log('Loading sponsorship opportunities for club user (DEMO MODE)');
-        loadSponsorshipOpportunitiesForClub();
-      } else {
-        console.log('Unknown user type, loading default content');
-        loadSponsorshipRequestsForBusiness();
-      }
+
+    if (userData?.type === 'business') {
+      console.log('Loading sponsorship requests for business user');
+      loadFirebaseSponsorshipRequestsForBusiness();
+    } else if (userData?.type === 'club') {
+      console.log('Loading sponsorship opportunities for club user');
+      loadFirebaseSponsorshipOpportunitiesForClub();
     } else {
-      // Real Firebase mode
-      console.log('=== USING FIREBASE MODE FOR BROWSE PAGE ===');
-      if (userData?.type === 'business') {
-        console.log('Loading sponsorship requests for business user (FIREBASE MODE)');
-        loadFirebaseSponsorshipRequestsForBusiness();
-      } else if (userData?.type === 'club') {
-        console.log('Loading sponsorship opportunities for club user (FIREBASE MODE)');
-        loadFirebaseSponsorshipOpportunitiesForClub();
-      } else {
-        console.log('User type not yet loaded, waiting...');
-        // Wait for userData to load
-        if (user && !userData) {
-          return; // Still loading user data
-        }
-        setLoading(false);
+      console.log('User type not yet loaded, waiting...');
+      // Wait for userData to load
+      if (user && !userData) {
+        return; // Still loading user data
       }
+      setLoading(false);
     }
   }, [user, userData?.type]);
 
@@ -174,146 +154,6 @@ export default function BrowsePage() {
     setLoading(false);
   };
 
-  const loadSponsorshipRequestsForBusiness = () => {
-    // Mock sponsorship requests from clubs (for businesses to sponsor)
-    const mockSponsorshipRequests: Sponsorship[] = [
-        {
-          id: 'demo1',
-          title: 'New Football Kit Sponsorship',
-          description: 'Our local football club needs sponsorship for new team kits for the upcoming season. We have 25 players who need quality jerseys and shorts.',
-          category: 'equipment',
-          amount: 2500,
-          urgency: 'high',
-          status: 'active',
-          createdAt: { seconds: Date.now() / 1000 - 86400 * 2 }, // 2 days ago
-          deadline: new Date(Date.now() + 86400 * 14000).toISOString(), // 2 weeks from now
-          location: 'Manchester',
-          viewCount: 45,
-          interestedBusinesses: [],
-          clubId: 'club1',
-          clubName: 'Manchester United FC Youth'
-        },
-        {
-          id: 'demo2',
-          title: 'Tennis Court Maintenance Fund',
-          description: 'Our tennis club courts need resurfacing and net replacement. This will benefit our 50+ members and local community.',
-          category: 'facility',
-          amount: 5000,
-          urgency: 'medium',
-          status: 'active',
-          createdAt: { seconds: Date.now() / 1000 - 86400 * 5 }, // 5 days ago
-          location: 'Birmingham',
-          viewCount: 23,
-          interestedBusinesses: [],
-          clubId: 'club2',
-          clubName: 'Birmingham Tennis Club'
-        },
-        {
-          id: 'demo3',
-          title: 'Youth Cricket Team Travel Support',
-          description: 'Our under-16 cricket team has qualified for regional championships and needs travel support for accommodation and transport.',
-          category: 'travel',
-          amount: 1200,
-          urgency: 'high',
-          status: 'active',
-          createdAt: { seconds: Date.now() / 1000 - 86400 * 1 }, // 1 day ago
-          deadline: new Date(Date.now() + 86400 * 7000).toISOString(), // 1 week from now
-          location: 'London',
-          viewCount: 67,
-          interestedBusinesses: ['demo_business1'],
-          clubId: 'club3',
-          clubName: 'London Youth Cricket'
-        },
-        {
-          id: 'demo4',
-          title: 'Swimming Pool Equipment Upgrade',
-          description: 'Our swimming club needs new lane ropes and timing equipment to host regional competitions.',
-          category: 'equipment',
-          amount: 3000,
-          urgency: 'low',
-          status: 'active',
-          createdAt: { seconds: Date.now() / 1000 - 86400 * 7 }, // 1 week ago
-          location: 'Liverpool',
-          viewCount: 31,
-          interestedBusinesses: [],
-          clubId: 'club4',
-          clubName: 'Liverpool Swimming Club'
-        }
-      ];
-      
-      // Also load user-created sponsorships from localStorage
-      try {
-        const userCreatedRequests = JSON.parse(localStorage.getItem('sponsorconnect_requests') || '[]');
-        console.log('Loading user-created sponsorship requests:', userCreatedRequests.length);
-        
-        // Combine mock requests with user-created ones
-        const allRequests = [...mockSponsorshipRequests, ...userCreatedRequests];
-        console.log('Total sponsorship requests for business:', allRequests.length);
-        
-        setSponsorships(allRequests);
-      } catch (error) {
-        console.error('Error loading user sponsorships for business:', error);
-        setSponsorships(mockSponsorshipRequests);
-      }
-      
-      setLoading(false);
-  };
-
-  const loadSponsorshipOpportunitiesForClub = () => {
-    // Mock sponsorship opportunities from businesses (for clubs to apply to)
-    const mockSponsorshipOpportunities: Sponsorship[] = [
-      {
-        id: 'opp1',
-        title: 'Local Restaurant Team Sponsorship',
-        description: 'Pizza Palace is offering to sponsor a local sports team. We provide team meals after games, branded jerseys with our logo, and £2000 seasonal support.',
-        category: 'general',
-        amount: 2000,
-        urgency: 'medium',
-        status: 'active',
-        createdAt: { seconds: Date.now() / 1000 - 86400 * 3 },
-        location: 'Manchester',
-        viewCount: 34,
-        interestedBusinesses: [],
-        clubId: 'pizza_palace_business',
-        clubName: 'Pizza Palace Restaurant'
-      },
-      {
-        id: 'opp2',
-        title: 'Sports Equipment Store Partnership',
-        description: 'SportsCo is looking to partner with youth sports clubs. We offer 30% discount on all equipment, free team kit cleaning, and promotional support.',
-        category: 'equipment',
-        amount: 1500,
-        urgency: 'low',
-        status: 'active',
-        createdAt: { seconds: Date.now() / 1000 - 86400 * 5 },
-        location: 'Birmingham',
-        viewCount: 28,
-        interestedBusinesses: [],
-        clubId: 'sportsco_business',
-        clubName: 'SportsCo Equipment Store'
-      },
-      {
-        id: 'opp3',
-        title: 'Construction Company Community Investment',
-        description: 'BuildWell Construction wants to invest in local sports facilities. We offer facility improvements, ground maintenance, and ongoing support for community clubs.',
-        category: 'facility',
-        amount: 5000,
-        urgency: 'high',
-        status: 'active',
-        createdAt: { seconds: Date.now() / 1000 - 86400 * 1 },
-        location: 'London',
-        viewCount: 67,
-        interestedBusinesses: [],
-        clubId: 'buildwell_business',
-        clubName: 'BuildWell Construction Ltd'
-      }
-    ];
-    
-    // For now, clubs only see these mock opportunities
-    // Later: load real sponsorship opportunities from localStorage/Firebase
-    setSponsorships(mockSponsorshipOpportunities);
-    setLoading(false);
-  };
 
   useEffect(() => {
     // Apply filters and sorting
@@ -420,15 +260,6 @@ export default function BrowsePage() {
                   Discover businesses offering sponsorship support for clubs like yours
                 </p>
               </>
-            )}
-            {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
-              <div className="mt-4 p-3 bg-blue-500 border border-blue-300 rounded-md">
-                <p className="text-sm text-blue-100">
-                  <strong>Demo Mode:</strong> {userData?.type === 'business' 
-                    ? 'Showing sponsorship requests from clubs + your created sponsorships.'
-                    : 'Showing sample sponsorship opportunities from businesses.'}
-                </p>
-              </div>
             )}
           </div>
         </div>

@@ -49,9 +49,6 @@ export default function LoginPage() {
         console.log('✅ Firebase authentication successful:', userCredential.user.email);
         console.log('User UID:', userCredential.user.uid);
         
-        // Clear any demo mode data
-        localStorage.removeItem('sponsorconnect_user');
-        console.log('Demo mode data cleared');
         
         // Redirect to dashboard - AuthContext will handle the user state
         console.log('Redirecting to dashboard...');
@@ -106,8 +103,6 @@ export default function LoginPage() {
             
             console.log('✅ Firestore document created successfully');
             
-            // Clear any demo mode data
-            localStorage.removeItem('sponsorconnect_user');
             
             // Redirect to dashboard
             console.log('Redirecting to dashboard...');
@@ -120,38 +115,20 @@ export default function LoginPage() {
           }
         }
         
-        // Firebase failed, fall back to demo mode
-        console.log('=== FALLING BACK TO DEMO MODE ===');
+        // Firebase authentication failed
+        console.log('=== FIREBASE AUTH FAILED ===');
         console.log('Firebase error was:', firebaseError.message || firebaseError.code);
-        
-        let errorMessage = 'Firebase authentication failed. Using demo mode.';
-        if (firebaseError.message?.includes('timeout')) {
-          errorMessage = 'Firebase connection timeout. Using demo mode.';
-        } else if (firebaseError.code) {
-          errorMessage = `Firebase error (${firebaseError.code}). Using demo mode.`;
+
+        let errorMessage = 'Authentication failed. Please check your credentials.';
+        if (firebaseError.code === 'auth/user-not-found') {
+          errorMessage = 'No account found with this email. Please register first.';
+        } else if (firebaseError.code === 'auth/wrong-password') {
+          errorMessage = 'Incorrect password. Please try again.';
+        } else if (firebaseError.code === 'auth/invalid-email') {
+          errorMessage = 'Invalid email address.';
         }
-        
+
         setError(errorMessage);
-        
-        // Demo mode fallback
-        if (email.includes('@') && password.length >= 3) {
-          const demoData = {
-            email: email,
-            type: email.includes('club') ? 'club' : 'business',
-            name: email.split('@')[0],
-            profileCompleted: false
-          };
-          
-          console.log('Setting demo mode data:', demoData);
-          localStorage.setItem('sponsorconnect_user', JSON.stringify(demoData));
-          
-          // Small delay to show the error message
-          setTimeout(() => {
-            console.log('Demo mode: redirecting to dashboard...');
-            router.push('/dashboard');
-          }, 2000);
-          return;
-        }
       }
       
       console.log('❌ Login validation failed');
@@ -176,12 +153,6 @@ export default function LoginPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-700">
-              <strong>Firebase Authentication Enabled:</strong> Use your existing account or create a new one.
-              If Firebase is unavailable, the system will automatically fall back to demo mode.
-            </p>
-          </div>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (

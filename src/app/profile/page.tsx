@@ -136,35 +136,7 @@ export default function ProfilePage() {
         return;
       }
 
-      // Check if we're in demo mode
-      const demoUser = localStorage.getItem('sponsorconnect_user');
-      
-      if (demoUser) {
-        // Demo mode: update localStorage
-        const userData = JSON.parse(demoUser);
-        const updatedUserData = {
-          ...userData,
-          ...formData,
-          profileCompleted: true,
-          updatedAt: new Date().toISOString()
-        };
-        
-        localStorage.setItem('sponsorconnect_user', JSON.stringify(updatedUserData));
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Refresh the user data in AuthContext
-        await refreshUserData();
-        
-        setSuccess('Profile completed successfully!');
-        
-        // Redirect to dashboard after a moment
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 1500);
-      } else {
-        // Real Firebase mode - update Firestore user document
+      // Update Firestore user document
         console.log('=== FIREBASE PROFILE UPDATE ===');
         console.log('User UID:', user?.uid);
         console.log('Form data:', formData);
@@ -208,7 +180,6 @@ export default function ProfilePage() {
         setTimeout(() => {
           router.push('/dashboard');
         }, 1500);
-      }
       
     } catch (error: any) {
       console.error('=== PROFILE UPDATE ERROR ===');
@@ -225,37 +196,7 @@ export default function ProfilePage() {
       } else if (error?.code === 'network-request-failed') {
         errorMessage = 'Network error. Please check your connection and try again.';
       } else if (error?.code === 'unavailable' || error?.message?.includes('Cloud Firestore backend') || error?.message?.includes('Firebase')) {
-        errorMessage = 'Database connection failed. Trying demo mode...';
-        
-        // Auto-fallback to demo mode on Firebase errors
-        try {
-          console.log('Auto-falling back to demo mode for profile update...');
-          const demoUserData = {
-            uid: user?.uid || 'demo_user',
-            email: user?.email || formData.contactEmail,
-            type: userData.type,
-            ...formData,
-            profileCompleted: true,
-            updatedAt: new Date().toISOString()
-          };
-          
-          localStorage.setItem('sponsorconnect_user', JSON.stringify(demoUserData));
-          
-          // Refresh the user data in AuthContext
-          await refreshUserData();
-          
-          console.log('✅ Auto-fallback to demo mode successful');
-          setSuccess('Profile saved successfully in demo mode!');
-          
-          // Redirect to dashboard after a moment
-          setTimeout(() => {
-            router.push('/dashboard');
-          }, 1500);
-          return;
-        } catch (fallbackError) {
-          console.error('Demo mode fallback also failed:', fallbackError);
-          errorMessage = 'Both Firebase and demo mode failed. Please refresh and try again.';
-        }
+        errorMessage = 'Database connection failed. Please check your connection and try again.';
       }
       
       setError(errorMessage);
@@ -274,13 +215,6 @@ export default function ProfilePage() {
           <p className="mt-2 text-gray-600">
             Tell us about your {userData.type === 'business' ? 'business' : 'club'} to get the most out of SponsorConnect.
           </p>
-          {typeof window !== 'undefined' && localStorage.getItem('sponsorconnect_user') && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <p className="text-sm text-yellow-700">
-                <strong>Demo Mode:</strong> Your profile will be saved locally for demonstration purposes.
-              </p>
-            </div>
-          )}
         </div>
 
         {error && (
