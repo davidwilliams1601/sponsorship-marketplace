@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, enableNetwork, disableNetwork } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -18,12 +18,15 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Enable persistence and better error handling
-if (typeof window !== 'undefined') {
-  // Ensure network is enabled for Firestore
-  enableNetwork(db).catch((error) => {
-    console.warn('Failed to enable Firestore network:', error);
-  });
+// Initialize with better error handling
+let initialized = false;
+if (typeof window !== 'undefined' && !initialized) {
+  try {
+    console.log('Firebase initialized successfully');
+    initialized = true;
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+  }
 }
 
 export default app;
