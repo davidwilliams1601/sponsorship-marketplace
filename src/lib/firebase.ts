@@ -18,15 +18,5 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Initialize with better error handling
-let initialized = false;
-if (typeof window !== 'undefined' && !initialized) {
-  try {
-    console.log('Firebase initialized successfully');
-    initialized = true;
-  } catch (error) {
-    console.error('Firebase initialization error:', error);
-  }
-}
 
 export default app;

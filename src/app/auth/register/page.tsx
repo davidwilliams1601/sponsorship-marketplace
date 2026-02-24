@@ -20,44 +20,30 @@ function RegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('=== REGISTER FORM SUBMITTED ===');
-    console.log('Name:', name);
-    console.log('Email:', email);
-    console.log('User type:', userType);
-    console.log('Password length:', password.length);
-    
     setLoading(true);
     setError('');
 
     try {
       if (!name || !email || !password) {
-        console.log('Missing required fields');
         setError('Please fill in all fields');
         setLoading(false);
         return;
       }
 
-      // Try Firebase registration first with timeout and better error handling
       try {
-        console.log('=== ATTEMPTING FIREBASE REGISTRATION ===');
-        
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Firebase registration timeout')), 8000)
         );
-        
+
         const userCredential = await Promise.race([
           createUserWithEmailAndPassword(auth, email, password),
           timeoutPromise
         ]) as any;
-        
-        console.log('✅ Firebase registration successful:', userCredential.user.email);
-        
-        // Create user document in Firestore with timeout
-        const firestoreTimeoutPromise = new Promise((_, reject) => 
+
+        const firestoreTimeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Firestore write timeout')), 5000)
         );
-        
+
         await Promise.race([
           setDoc(doc(db, 'users', userCredential.user.uid), {
             name,
@@ -69,19 +55,11 @@ function RegisterForm() {
           firestoreTimeoutPromise
         ]);
 
-        console.log('✅ Firestore document created successfully');
-        
-        
-        console.log('Redirecting to dashboard...');
         router.push('/dashboard');
         return;
 
       } catch (firebaseError: any) {
-        console.log('=== FIREBASE REGISTRATION FAILED ===');
-        console.error('Firebase error:', firebaseError);
-        
-        // Firebase registration failed
-        console.log('=== FIREBASE REGISTRATION FAILED ===');
+        console.error('Firebase registration error:', firebaseError);
 
         let errorMessage = 'Registration failed. Please try again.';
         if (firebaseError.code === 'auth/email-already-in-use') {
@@ -94,16 +72,12 @@ function RegisterForm() {
 
         setError(errorMessage);
       }
-      
-      console.log('❌ Registration validation failed');
-      setError('Please enter valid information for all fields');
-      
+
     } catch (error: any) {
-      console.error('❌ Unexpected registration error:', error);
+      console.error('Unexpected registration error:', error);
       setError('Registration failed. Please try again.');
     } finally {
       setLoading(false);
-      console.log('=== REGISTRATION PROCESS COMPLETED ===');
     }
   };
 

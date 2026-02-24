@@ -13,16 +13,11 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('=== LOGIN FORM SUBMITTED ===');
-    console.log('Email:', email);
-    console.log('Password length:', password.length);
-    
     setLoading(true);
     setError('');
 
     try {
       if (!email || !password) {
-        console.log('Missing email or password');
         setError('Please enter both email and password');
         setLoading(false);
         return;
@@ -30,66 +25,44 @@ export default function LoginPage() {
 
       // Try Firebase authentication first with timeout
       try {
-        console.log('=== ATTEMPTING FIREBASE AUTH ===');
         const { signInWithEmailAndPassword } = await import('firebase/auth');
         const { auth } = await import('@/lib/firebase');
-        
-        console.log('Firebase modules loaded, attempting login...');
-        
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
+
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Firebase login timeout')), 8000)
         );
-        
+
         const userCredential = await Promise.race([
           signInWithEmailAndPassword(auth, email, password),
           timeoutPromise
         ]) as any;
-        
-        console.log('✅ Firebase authentication successful:', userCredential.user.email);
-        console.log('User UID:', userCredential.user.uid);
-        
-        
-        // Redirect to dashboard - AuthContext will handle the user state
-        console.log('Redirecting to dashboard...');
+
         router.push('/dashboard');
         return;
-        
+
       } catch (firebaseError: any) {
-        console.log('=== FIREBASE AUTH FAILED ===');
-        console.error('Firebase error code:', firebaseError.code);
-        console.error('Firebase error message:', firebaseError.message);
-        
         // If user not found, try to create account
         if (firebaseError.code === 'auth/user-not-found') {
           try {
-            console.log('=== CREATING NEW USER ===');
             const { createUserWithEmailAndPassword } = await import('firebase/auth');
             const { doc, setDoc } = await import('firebase/firestore');
             const { auth, db } = await import('@/lib/firebase');
-            
-            console.log('Creating new Firebase user...');
-            
-            // Add timeout for user creation
-            const createTimeoutPromise = new Promise((_, reject) => 
+
+            const createTimeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Firebase user creation timeout')), 8000)
             );
-            
+
             const userCredential = await Promise.race([
               createUserWithEmailAndPassword(auth, email, password),
               createTimeoutPromise
             ]) as any;
-            
-            console.log('✅ New Firebase user created:', userCredential.user.email);
-            
-            // Create user document in Firestore with timeout
+
             const userType = email.includes('club') ? 'club' : 'business';
-            console.log('Creating Firestore document with type:', userType);
-            
-            const firestoreTimeoutPromise = new Promise((_, reject) => 
+
+            const firestoreTimeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Firestore write timeout')), 5000)
             );
-            
+
             await Promise.race([
               setDoc(doc(db, 'users', userCredential.user.uid), {
                 name: email.split('@')[0],
@@ -100,24 +73,14 @@ export default function LoginPage() {
               }),
               firestoreTimeoutPromise
             ]);
-            
-            console.log('✅ Firestore document created successfully');
-            
-            
-            // Redirect to dashboard
-            console.log('Redirecting to dashboard...');
+
             router.push('/dashboard');
             return;
-            
+
           } catch (createError: any) {
-            console.error('❌ Failed to create Firebase user:', createError);
-            console.error('Create error details:', createError.message);
+            console.error('Failed to create Firebase user:', createError);
           }
         }
-        
-        // Firebase authentication failed
-        console.log('=== FIREBASE AUTH FAILED ===');
-        console.log('Firebase error was:', firebaseError.message || firebaseError.code);
 
         let errorMessage = 'Authentication failed. Please check your credentials.';
         if (firebaseError.code === 'auth/user-not-found') {
@@ -130,16 +93,14 @@ export default function LoginPage() {
 
         setError(errorMessage);
       }
-      
-      console.log('❌ Login validation failed');
+
       setError('Please enter a valid email and password');
-      
+
     } catch (error: any) {
-      console.error('❌ Unexpected login error:', error);
+      console.error('Unexpected login error:', error);
       setError('Login failed. Please try again.');
     } finally {
       setLoading(false);
-      console.log('=== LOGIN PROCESS COMPLETED ===');
     }
   };
 
@@ -205,7 +166,7 @@ export default function LoginPage() {
 
           <div className="text-center">
             <Link href="/auth/register" className="text-blue-600 hover:text-blue-500">
-              Don't have an account? Sign up
+              Don&apos;t have an account? Sign up
             </Link>
           </div>
         </form>

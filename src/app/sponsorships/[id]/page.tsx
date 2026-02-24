@@ -63,49 +63,22 @@ export default function SponsorshipDetailPage() {
       if (!sponsorshipId) return;
 
       try {
-        console.log('Fetching sponsorship:', sponsorshipId);
-        console.log('User mode check - Firebase user:', user ? `${user.email} (${user.uid})` : 'No user');
+        const docRef = doc(db, 'sponsorships', sponsorshipId);
+        const docSnap = await getDoc(docRef);
 
-        // Prioritize Firebase if we have a real Firebase user
-        if (user && user.uid && !user.uid.startsWith('demo_')) {
-          console.log('=== USING FIREBASE MODE FOR SPONSORSHIP DETAIL ===');
-          
-          const docRef = doc(db, 'sponsorships', sponsorshipId);
-          const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = { id: docSnap.id, ...docSnap.data() } as Sponsorship;
+          setSponsorship(data);
 
-          if (docSnap.exists()) {
-            const data = { id: docSnap.id, ...docSnap.data() } as Sponsorship;
-            setSponsorship(data);
-
-            // Increment view count if user is not the owner
-            if (user.uid !== data.clubId) {
-              await updateDoc(docRef, {
-                viewCount: increment(1)
-              });
-            }
-          } else {
-            setError('Sponsorship request not found');
+          // Increment view count if user is not the owner
+          if (user && user.uid !== data.clubId) {
+            await updateDoc(docRef, {
+              viewCount: increment(1)
+            });
           }
-          
         } else {
-          // Demo mode: load from localStorage
-          console.log('=== USING DEMO MODE FOR SPONSORSHIP DETAIL ===');
-          const foundSponsorship = demoRequests.find((req: any) => req.id === sponsorshipId);
-          
-          if (foundSponsorship) {
-            setSponsorship(foundSponsorship);
-            
-            if (user && user.uid !== foundSponsorship.clubId) {
-              foundSponsorship.viewCount = (foundSponsorship.viewCount || 0) + 1;
-              const updatedRequests = demoRequests.map((req: any) => 
-                req.id === sponsorshipId ? foundSponsorship : req
-              );
-            }
-          } else {
-            setError('Sponsorship request not found');
-          }
+          setError('Sponsorship request not found');
         }
-        
       } catch (error) {
         console.error('Error fetching sponsorship:', error);
         setError('Failed to load sponsorship request');
@@ -122,76 +95,17 @@ export default function SponsorshipDetailPage() {
 
     setShowingInterest(true);
     try {
-      console.log('Business showing interest:', { userId: user.uid, sponsorshipId });
-      
-      // Prioritize Firebase if we have a real Firebase user
-      if (user && user.uid && !user.uid.startsWith('demo_')) {
-        console.log('=== UPDATING INTEREST VIA FIREBASE ===');
-        
-        const docRef = doc(db, 'sponsorships', sponsorshipId);
-        
-        // Check if already interested
-        if (sponsorship.interestedBusinesses.includes(user.uid)) {
-          // Remove interest
-          console.log('Removing business interest from Firebase');
-          const updatedBusinesses = sponsorship.interestedBusinesses.filter(id => id !== user.uid);
-          await updateDoc(docRef, {
-            interestedBusinesses: updatedBusinesses
-          });
-          setSponsorship(prev => prev ? {
-            ...prev,
-            interestedBusinesses: updatedBusinesses
-          } : null);
-        } else {
-          // Add interest
-          console.log('Adding business interest to Firebase');
-          const updatedBusinesses = [...sponsorship.interestedBusinesses, user.uid];
-          await updateDoc(docRef, {
-            interestedBusinesses: updatedBusinesses
-          });
-          setSponsorship(prev => prev ? {
-            ...prev,
-            interestedBusinesses: updatedBusinesses
-          } : null);
-        }
-        
+      const docRef = doc(db, 'sponsorships', sponsorshipId);
+
+      if (sponsorship.interestedBusinesses.includes(user.uid)) {
+        const updatedBusinesses = sponsorship.interestedBusinesses.filter(id => id !== user.uid);
+        await updateDoc(docRef, { interestedBusinesses: updatedBusinesses });
+        setSponsorship(prev => prev ? { ...prev, interestedBusinesses: updatedBusinesses } : null);
       } else {
-        // Demo mode: update localStorage
-        console.log('=== UPDATING INTEREST VIA DEMO MODE ===');
-        
-        const sponsorshipIndex = demoRequests.findIndex((req: any) => req.id === sponsorshipId);
-        
-        if (sponsorshipIndex !== -1) {
-          const currentSponsorship = demoRequests[sponsorshipIndex];
-          
-          // Check if already interested
-          if (currentSponsorship.interestedBusinesses.includes(user.uid)) {
-            // Remove interest
-            const updatedBusinesses = currentSponsorship.interestedBusinesses.filter((id: string) => id !== user.uid);
-            currentSponsorship.interestedBusinesses = updatedBusinesses;
-            
-            // Update local state
-            setSponsorship(prev => prev ? {
-              ...prev,
-              interestedBusinesses: updatedBusinesses
-            } : null);
-          } else {
-            // Add interest
-            const updatedBusinesses = [...currentSponsorship.interestedBusinesses, user.uid];
-            currentSponsorship.interestedBusinesses = updatedBusinesses;
-            
-            // Update local state
-            setSponsorship(prev => prev ? {
-              ...prev,
-              interestedBusinesses: updatedBusinesses
-            } : null);
-          }
-          
-          // Save back to localStorage
-          console.log('Demo mode interest updated successfully');
-        }
+        const updatedBusinesses = [...sponsorship.interestedBusinesses, user.uid];
+        await updateDoc(docRef, { interestedBusinesses: updatedBusinesses });
+        setSponsorship(prev => prev ? { ...prev, interestedBusinesses: updatedBusinesses } : null);
       }
-      
     } catch (error) {
       console.error('Error updating interest:', error);
     } finally {

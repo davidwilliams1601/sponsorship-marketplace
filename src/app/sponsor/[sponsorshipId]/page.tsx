@@ -50,19 +50,12 @@ export default function SponsorPage() {
 
     const fetchSponsorship = async () => {
       try {
-        console.log('Loading sponsorship:', sponsorshipId);
         const docRef = doc(db, 'sponsorships', sponsorshipId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-          const data = docSnap.data();
-          console.log('Sponsorship loaded:', data);
-          setSponsorship({
-            id: docSnap.id,
-            ...data
-          } as Sponsorship);
+          setSponsorship({ id: docSnap.id, ...docSnap.data() } as Sponsorship);
         } else {
-          console.log('Sponsorship not found');
           setError('Sponsorship request not found');
         }
       } catch (error) {
@@ -81,10 +74,6 @@ export default function SponsorPage() {
 
     setProcessing(true);
     try {
-      // Here you would integrate with Stripe for payment processing
-      // For now, we'll redirect to a success page
-      console.log('Processing sponsorship for:', sponsorship.title);
-
       // Simulate processing delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 

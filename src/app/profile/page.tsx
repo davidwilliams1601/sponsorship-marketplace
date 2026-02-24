@@ -137,10 +137,6 @@ export default function ProfilePage() {
       }
 
       // Update Firestore user document
-        console.log('=== FIREBASE PROFILE UPDATE ===');
-        console.log('User UID:', user?.uid);
-        console.log('Form data:', formData);
-        
         const profileData = {
           ...formData,
           type: userData.type,
@@ -149,23 +145,18 @@ export default function ProfilePage() {
           updatedAt: serverTimestamp()
         };
         
-        console.log('Updating Firebase profile with:', profileData);
-        
         const userDocRef = doc(db, 'users', user.uid);
         
         try {
           // Try to update existing document first
           await updateDoc(userDocRef, profileData);
-          console.log('Profile updated successfully with updateDoc');
         } catch (updateError: any) {
-          console.log('updateDoc failed, trying setDoc:', updateError);
           // If document doesn't exist, create it
           if (updateError?.code === 'not-found') {
             await setDoc(userDocRef, {
               ...profileData,
               createdAt: serverTimestamp()
             });
-            console.log('Profile created successfully with setDoc');
           } else {
             throw updateError;
           }
@@ -182,12 +173,8 @@ export default function ProfilePage() {
         }, 1500);
       
     } catch (error: any) {
-      console.error('=== PROFILE UPDATE ERROR ===');
-      console.error('Error details:', error);
-      console.error('Error message:', error?.message);
-      console.error('Error code:', error?.code);
-      console.error('================================');
-      
+      console.error('Profile update error:', error);
+
       let errorMessage = 'Failed to update profile. Please try again.';
       
       // Provide more specific error messages and auto-fallback

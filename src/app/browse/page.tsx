@@ -57,18 +57,11 @@ export default function BrowsePage() {
   });
 
   useEffect(() => {
-    console.log('=== BROWSE PAGE LOADING ===');
-    console.log('User type:', userData?.type);
-    console.log('User UID:', user?.uid);
-
     if (userData?.type === 'business') {
-      console.log('Loading sponsorship requests for business user');
       loadFirebaseSponsorshipRequestsForBusiness();
     } else if (userData?.type === 'club') {
-      console.log('Loading sponsorship opportunities for club user');
       loadFirebaseSponsorshipOpportunitiesForClub();
     } else {
-      console.log('User type not yet loaded, waiting...');
       // Wait for userData to load
       if (user && !userData) {
         return; // Still loading user data
@@ -78,9 +71,6 @@ export default function BrowsePage() {
   }, [user, userData?.type]);
 
   const loadFirebaseSponsorshipRequestsForBusiness = () => {
-    // Load real sponsorship requests from Firestore for businesses
-    console.log('Loading sponsorship requests from Firestore...');
-    
     const q = query(
       collection(db, 'sponsorships'),
       where('status', 'in', ['active', 'pending']),
@@ -89,17 +79,14 @@ export default function BrowsePage() {
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      console.log('Firebase query returned:', querySnapshot.size, 'sponsorships');
       const sponsorshipsList: Sponsorship[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        console.log('Found Firebase sponsorship:', doc.id, data.title);
         sponsorshipsList.push({
           id: doc.id,
           ...data
         } as Sponsorship);
       });
-      console.log('Total Firebase sponsorships for business:', sponsorshipsList.length);
       setSponsorships(sponsorshipsList);
       setLoading(false);
     }, (error) => {
@@ -113,10 +100,6 @@ export default function BrowsePage() {
   };
 
   const loadFirebaseSponsorshipOpportunitiesForClub = () => {
-    // For now, clubs see mock opportunities since businesses don't create "opportunities" yet
-    // In the future, this would load from a "opportunities" collection or similar
-    console.log('Loading sponsorship opportunities for clubs (mock data for now)...');
-    
     const mockOpportunities: Sponsorship[] = [
       {
         id: 'firebase_opp1',

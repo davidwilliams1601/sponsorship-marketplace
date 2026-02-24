@@ -42,14 +42,6 @@ export default function CreateSponsorshipPage() {
     images: []
   });
 
-  // Debug logging for auth state
-  console.log('🚀 DEPLOYMENT TEST - CreateSponsorshipPage loaded at:', new Date().toISOString());
-  console.log('CreateSponsorshipPage - Auth State:', {
-    user: user ? { uid: user.uid, email: user.email } : null,
-    userData: userData,
-    authLoading
-  });
-
   // Wait for auth to load before redirecting
   if (authLoading) {
     return (
@@ -61,36 +53,27 @@ export default function CreateSponsorshipPage() {
 
   // Redirect if not a club
   if (userData && userData.type !== 'club') {
-    console.log('Redirecting - user type is not club:', userData.type);
     router.push('/dashboard');
     return null;
   }
 
   if (!user) {
-    console.log('Redirecting - no user found');
     router.push('/auth/login');
     return null;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('=== SPONSORSHIP CREATE FORM SUBMITTED ===');
     setError('');
     setLoading(true);
 
     try {
       // Validate required fields
       if (!formData.title || !formData.description || !formData.category || !formData.amount) {
-        console.log('Validation failed: missing required fields');
         setError('Please fill in all required fields');
         setLoading(false);
         return;
       }
-
-      console.log('=== CREATING FIREBASE SPONSORSHIP ===');
-      console.log('User UID:', user?.uid);
-      console.log('User email:', user?.email);
-      console.log('User type:', userData?.type);
 
       if (!user || !user.uid) {
         setError('Authentication error. Please log in again.');
@@ -110,23 +93,13 @@ export default function CreateSponsorshipPage() {
         interestedBusinesses: []
       };
 
-      console.log('Sponsorship data:', sponsorshipData);
+      await addDoc(collection(db, 'sponsorships'), sponsorshipData);
 
-      const docRef = await addDoc(collection(db, 'sponsorships'), sponsorshipData);
-
-      console.log('✅ Sponsorship created in Firebase with ID:', docRef.id);
       router.push('/sponsorships/manage');
       
     } catch (error: any) {
-      console.error('=== SPONSORSHIP CREATION ERROR ===');
-      console.error('Error details:', error);
-      console.error('Error message:', error?.message);
-      console.error('Error code:', error?.code);
-      console.error('Current user:', user ? { uid: user.uid, email: user.email } : 'No user');
-      console.error('Current userData:', userData);
-      console.error('Form data at error:', formData);
-      console.error('================================');
-      
+      console.error('Sponsorship creation error:', error);
+
       let errorMessage = 'Failed to create sponsorship request. Please try again.';
       
       // Provide more specific error messages

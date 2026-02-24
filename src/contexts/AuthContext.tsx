@@ -55,21 +55,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          console.log('Firebase user detected:', firebaseUser.email);
           setUser(firebaseUser);
 
           // Fetch user data from Firestore
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
-            const userData = userDoc.data() as UserData;
-            console.log('Firestore user data loaded:', userData);
-            setUserData(userData);
+            setUserData(userDoc.data() as UserData);
           } else {
-            console.log('No Firestore document found for user');
             setUserData(null);
           }
         } else {
-          console.log('No Firebase user found');
           setUser(null);
           setUserData(null);
         }
@@ -89,13 +84,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user) return;
 
     try {
-      console.log('Refreshing user data for:', user.email);
-
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
-        const userData = userDoc.data() as UserData;
-        console.log('Refreshed user data:', userData);
-        setUserData(userData);
+        setUserData(userDoc.data() as UserData);
       }
     } catch (error) {
       console.error('Error refreshing user data:', error);

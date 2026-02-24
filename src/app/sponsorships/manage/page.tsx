@@ -56,9 +56,6 @@ export default function ManageSponsorshipsPage() {
   useEffect(() => {
     if (!user) return;
 
-    console.log('=== MANAGE PAGE LOADING SPONSORSHIPS ===');
-    console.log('User:', user ? { uid: user.uid, email: user.email } : null);
-
     try {
       const q = query(
         collection(db, 'sponsorships'),
@@ -67,23 +64,17 @@ export default function ManageSponsorshipsPage() {
       );
 
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        console.log('Firebase query returned:', querySnapshot.size, 'sponsorships');
         const sponsorshipsList: Sponsorship[] = [];
         querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          console.log('Found sponsorship:', doc.id, data.title);
           sponsorshipsList.push({
             id: doc.id,
-            ...data
+            ...doc.data()
           } as Sponsorship);
         });
-
-        console.log('Final sponsorships list:', sponsorshipsList);
         setSponsorships(sponsorshipsList);
         setLoading(false);
       }, (error) => {
-        console.error('=== FIREBASE QUERY ERROR ===');
-        console.error('Error details:', error);
+        console.error('Firebase query error:', error);
         setSponsorships([]);
         setLoading(false);
       });
@@ -91,8 +82,7 @@ export default function ManageSponsorshipsPage() {
       return () => unsubscribe();
 
     } catch (queryError) {
-      console.error('=== FIREBASE QUERY SETUP ERROR ===');
-      console.error('Query creation failed:', queryError);
+      console.error('Firebase query setup error:', queryError);
       setSponsorships([]);
       setLoading(false);
     }
@@ -107,7 +97,6 @@ export default function ManageSponsorshipsPage() {
 
     try {
       await deleteDoc(doc(db, 'sponsorships', id));
-      console.log('Sponsorship deleted successfully');
     } catch (error) {
       console.error('Error deleting sponsorship:', error);
       alert('Failed to delete sponsorship request');
