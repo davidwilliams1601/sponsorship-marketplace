@@ -4,6 +4,13 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
+  if (!stripe) {
+    return NextResponse.json(
+      { error: 'Payment processing is not configured' },
+      { status: 503 }
+    );
+  }
+
   try {
     const { sponsorshipId, businessId } = await request.json();
 
@@ -38,11 +45,9 @@ export async function POST(request: NextRequest) {
 
     const business = businessDoc.data();
 
-    // Create payment intent with platform fee
     const paymentIntent = await stripe.paymentIntents.create({
       amount: toStripeAmount(amount),
       currency: 'gbp',
-      application_fee_amount: toStripeAmount(platformFee),
       metadata: {
         sponsorshipId,
         businessId,

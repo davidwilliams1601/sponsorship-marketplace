@@ -38,8 +38,9 @@ service cloud.firestore {
 
     // Users collection - user profiles and account data
     match /users/{userId} {
-      // Users can read their own profile, admins can read all
-      allow read: if isOwner(userId) || isAdmin();
+      // Users can read their own profile; authenticated users can read basic public profiles
+      // (needed for messaging participant name lookups); admins can read all
+      allow read: if isOwner(userId) || isAuthenticated() || isAdmin();
       
       // Users can create their own profile during registration
       allow create: if isAuthenticated() && 
@@ -115,6 +116,24 @@ service cloud.firestore {
       allow delete: if (resource.data.businessId == request.auth.uid) || isAdmin();
     }
 
+    // Conversations collection - top-level conversation threads
+    match /conversations/{conversationId} {
+      // Only participants and admins can read
+      allow read: if isAuthenticated() &&
+                     (request.auth.uid in resource.data.participants || isAdmin());
+
+      // Any authenticated user can create a conversation they are part of
+      allow create: if isAuthenticated() &&
+                       request.auth.uid in request.resource.data.participants &&
+                       request.resource.data.participants.size() == 2;
+
+      // Participants can update (e.g. lastMessage, unreadCount)
+      allow update: if isAuthenticated() &&
+                       (request.auth.uid in resource.data.participants || isAdmin());
+
+      allow delete: if isAdmin();
+    }
+
     // Messages collection - communication between parties
     match /messages/{conversationId}/messages/{messageId} {
       // Only sender, recipient, and admins can read
@@ -157,11 +176,6 @@ service cloud.firestore {
       
       // Only admins can delete agreements
       allow delete: if isAdmin();
-    }
-
-    // Test collection - REMOVE IN PRODUCTION
-    match /test/{document=**} {
-      allow read, write: if true; // Allow all access for testing
     }
 
     // Deny all other access

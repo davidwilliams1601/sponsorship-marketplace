@@ -27,7 +27,7 @@ export default function Navigation() {
   const filteredItems = navItems.filter(item => {
     if (item.showFor === 'all') return true;
     if (item.showFor === userData?.type) return true;
-    if (item.showFor === 'admin' && userData?.isAdmin) return true;
+    if (item.showFor === 'admin' && userData?.type === 'admin') return true;
     return false;
   });
 

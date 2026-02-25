@@ -5,6 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { stripePromise, formatCurrency } from '@/lib/stripe';
+import { Elements } from '@stripe/react-stripe-js';
+import PaymentForm from '@/components/payments/PaymentForm';
 import Link from 'next/link';
 
 interface Sponsorship {
@@ -31,8 +34,15 @@ const CATEGORY_LABELS: { [key: string]: string } = {
   facility: 'Facility & Ground',
   travel: 'Travel & Transport',
   training: 'Training & Coaching',
-  general: 'General Support'
+  general: 'General Support',
 };
+
+interface PaymentDetails {
+  clientSecret: string;
+  amount: number;
+  platformFee: number;
+  clubAmount: number;
+}
 
 export default function SponsorPage() {
   const params = useParams();
@@ -41,7 +51,8 @@ export default function SponsorPage() {
   const [sponsorship, setSponsorship] = useState<Sponsorship | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [processing, setProcessing] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
+  const [preparingPayment, setPreparingPayment] = useState(false);
 
   const sponsorshipId = params.sponsorshipId as string;
 
@@ -58,8 +69,8 @@ export default function SponsorPage() {
         } else {
           setError('Sponsorship request not found');
         }
-      } catch (error) {
-        console.error('Error fetching sponsorship:', error);
+      } catch (err) {
+        console.error('Error fetching sponsorship:', err);
         setError('Failed to load sponsorship details');
       } finally {
         setLoading(false);
@@ -69,21 +80,34 @@ export default function SponsorPage() {
     fetchSponsorship();
   }, [sponsorshipId]);
 
-  const handleSponsorNow = async () => {
+  const handleProceedToPayment = async () => {
     if (!user || !sponsorship) return;
 
-    setProcessing(true);
-    try {
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    setPreparingPayment(true);
+    setError('');
 
-      // Redirect to success page
-      router.push(`/sponsor/success?sponsorship=${sponsorship.id}&amount=${sponsorship.amount}`);
-    } catch (error) {
-      console.error('Error processing sponsorship:', error);
-      setError('Failed to process sponsorship. Please try again.');
+    try {
+      const response = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sponsorshipId: sponsorship.id,
+          businessId: user.uid,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Failed to prepare payment');
+      }
+
+      setPaymentDetails(data);
+    } catch (err: any) {
+      console.error('Error preparing payment:', err);
+      setError(err.message ?? 'Failed to prepare payment. Please try again.');
     } finally {
-      setProcessing(false);
+      setPreparingPayment(false);
     }
   };
 
@@ -109,7 +133,7 @@ export default function SponsorPage() {
     );
   }
 
-  if (error || !sponsorship) {
+  if (error && !sponsorship) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -117,7 +141,7 @@ export default function SponsorPage() {
             {error || 'Sponsorship Not Found'}
           </h2>
           <p className="text-gray-600 mb-6">
-            The sponsorship request you're looking for doesn't exist or has been removed.
+            The sponsorship request you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <Link href="/browse" className="btn-primary">
             Browse Other Opportunities
@@ -127,18 +151,17 @@ export default function SponsorPage() {
     );
   }
 
+  if (!sponsorship) return null;
+
   const formatDate = (timestamp: any) => {
     if (!timestamp) return '';
-    return new Date(timestamp.seconds * 1000).toLocaleDateString();
+    return new Date(timestamp.seconds * 1000).toLocaleDateString('en-GB');
   };
 
   const formatDeadline = (deadline: string) => {
     if (!deadline) return null;
     const deadlineDate = new Date(deadline);
-    const now = new Date();
-    const diffTime = deadlineDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
+    const diffDays = Math.ceil((deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     if (diffDays < 0) return { text: 'Overdue', color: 'text-red-600' };
     if (diffDays === 0) return { text: 'Today', color: 'text-red-600' };
     if (diffDays <= 7) return { text: `${diffDays}d left`, color: 'text-yellow-600' };
@@ -151,138 +174,138 @@ export default function SponsorPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/browse" className="text-blue-600 hover:text-blue-800">
-                ← Back to Browse
-              </Link>
-            </div>
-            <div className="text-sm text-gray-500">
-              Sponsor Opportunity
-            </div>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <Link href="/browse" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            ← Back to Browse
+          </Link>
+          <span className="text-sm text-gray-500">Secure Checkout</span>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-8 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">{sponsorship.title}</h1>
-                <p className="text-green-100 text-lg">by {sponsorship.clubName}</p>
+      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 grid lg:grid-cols-5 gap-8">
+
+        {/* Left: Sponsorship summary */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 px-5 py-6 text-white">
+              <h1 className="text-xl font-bold mb-1">{sponsorship.title}</h1>
+              <p className="text-green-100 text-sm">by {sponsorship.clubName}</p>
+              <p className="text-2xl font-bold mt-3">{formatCurrency(sponsorship.amount)}</p>
+            </div>
+
+            <div className="p-5 space-y-3 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>Category</span>
+                <span className="font-medium text-gray-900">
+                  {CATEGORY_LABELS[sponsorship.category] ?? sponsorship.category}
+                </span>
               </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold">£{sponsorship.amount.toLocaleString()}</div>
-                <div className="text-green-100">Sponsorship Amount</div>
+              <div className="flex justify-between text-gray-600">
+                <span>Posted</span>
+                <span className="font-medium text-gray-900">{formatDate(sponsorship.createdAt)}</span>
               </div>
+              {sponsorship.location && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Location</span>
+                  <span className="font-medium text-gray-900">{sponsorship.location}</span>
+                </div>
+              )}
+              {deadline && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Deadline</span>
+                  <span className={`font-medium ${deadline.color}`}>{deadline.text}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-6">
-            {/* Details */}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Request Details</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Category:</span>
-                    <span className="font-medium">{CATEGORY_LABELS[sponsorship.category]}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Status:</span>
-                    <span className="font-medium capitalize">{sponsorship.status}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Posted:</span>
-                    <span className="font-medium">{formatDate(sponsorship.createdAt)}</span>
-                  </div>
-                  {deadline && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Deadline:</span>
-                      <span className={`font-medium ${deadline.color}`}>{deadline.text}</span>
-                    </div>
-                  )}
-                  {sponsorship.location && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Location:</span>
-                      <span className="font-medium">{sponsorship.location}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Impact</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Views:</span>
-                    <span className="font-medium">{sponsorship.viewCount || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Interested Businesses:</span>
-                    <span className="font-medium">{sponsorship.interestedBusinesses?.length || 0}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
-              <div className="prose prose-gray max-w-none">
-                <p className="text-gray-700 leading-relaxed">{sponsorship.description}</p>
-              </div>
-            </div>
-
-            {/* Benefits */}
-            {sponsorship.benefits && (
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Sponsorship Benefits</h3>
-                <div className="prose prose-gray max-w-none">
-                  <p className="text-gray-700 leading-relaxed">{sponsorship.benefits}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-              <button
-                onClick={handleSponsorNow}
-                disabled={processing}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {processing ? 'Processing...' : `💳 Sponsor Now - £${sponsorship.amount.toLocaleString()}`}
-              </button>
+          {sponsorship.description && (
+            <div className="bg-white rounded-lg shadow p-5">
+              <h3 className="font-semibold text-gray-900 mb-2 text-sm">About this request</h3>
+              <p className="text-gray-700 text-sm leading-relaxed line-clamp-4">
+                {sponsorship.description}
+              </p>
               <Link
                 href={`/sponsorships/${sponsorship.id}`}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-6 rounded-lg text-center transition-colors"
+                className="text-blue-600 hover:text-blue-800 text-xs mt-2 inline-block"
               >
-                📋 View Full Details
+                Read full details →
               </Link>
             </div>
-
-            {error && (
-              <div className="mt-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-                {error}
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Additional Info */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-900 mb-2">How Sponsorship Works</h4>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Your sponsorship directly supports {sponsorship.clubName}</li>
-            <li>• Payments are processed securely through our platform</li>
-            <li>• You'll receive confirmation and impact reports</li>
-            <li>• Build genuine community connections</li>
-          </ul>
+        {/* Right: Payment area */}
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-lg shadow p-6">
+            {!paymentDetails ? (
+              <>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Complete Your Sponsorship</h2>
+                <p className="text-gray-600 text-sm mb-6">
+                  Your payment will directly support {sponsorship.clubName}.
+                  A 5% platform fee helps us maintain and grow the service.
+                </p>
+
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm mb-6">
+                  <div className="flex justify-between font-semibold text-gray-900 text-base">
+                    <span>Total charge</span>
+                    <span>{formatCurrency(sponsorship.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>To {sponsorship.clubName}</span>
+                    <span>{formatCurrency(sponsorship.amount * 0.95)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>Platform fee (5%)</span>
+                    <span>{formatCurrency(sponsorship.amount * 0.05)}</span>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm mb-4">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleProceedToPayment}
+                  disabled={preparingPayment}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {preparingPayment ? 'Preparing...' : `Continue to Payment — ${formatCurrency(sponsorship.amount)}`}
+                </button>
+
+                <p className="text-xs text-gray-500 text-center mt-4">
+                  🔒 Payments processed securely by Stripe
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-gray-900 mb-6">Enter Payment Details</h2>
+
+                {stripePromise ? (
+                  <Elements
+                    stripe={stripePromise}
+                    options={{
+                      clientSecret: paymentDetails.clientSecret,
+                      appearance: { theme: 'stripe' },
+                    }}
+                  >
+                    <PaymentForm
+                      amount={paymentDetails.amount}
+                      platformFee={paymentDetails.platformFee}
+                      clubAmount={paymentDetails.clubAmount}
+                      onCancel={() => setPaymentDetails(null)}
+                    />
+                  </Elements>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    Payment processing is not available. Please try again later.
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
