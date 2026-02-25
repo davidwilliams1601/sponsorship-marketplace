@@ -188,9 +188,14 @@ export default function SponsorshipDetailPage() {
                   </Link>
                 </>
               ) : (
-                <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
-                  Dashboard
-                </Link>
+                <>
+                  <Link href="/browse" className="text-gray-600 hover:text-gray-900 text-sm">
+                    ← Back to Browse
+                  </Link>
+                  <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 text-sm">
+                    Dashboard
+                  </Link>
+                </>
               )}
             </div>
           </div>

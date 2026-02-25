@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
@@ -85,15 +85,36 @@ export default function ProfilePage() {
       return;
     }
 
-    // Pre-fill with existing data if available
-    if (userData) {
-      setFormData(prev => ({
-        ...prev,
-        name: userData.name || '',
-        contactEmail: userData.email || '',
-      }));
-    }
-  }, [user, userData, router]);
+    const fetchProfile = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setFormData({
+            name: data.name || '',
+            description: data.description || '',
+            location: data.location || '',
+            website: data.website || '',
+            contactEmail: data.contactEmail || data.email || '',
+            phone: data.phone || '',
+            businessType: data.businessType || '',
+            industry: data.industry || '',
+            sponsorshipBudget: data.sponsorshipBudget || '',
+            sponsorshipInterests: data.sponsorshipInterests || [],
+            clubType: data.clubType || '',
+            foundedYear: data.foundedYear || '',
+            memberCount: data.memberCount || '',
+            ageGroups: data.ageGroups || [],
+            achievements: data.achievements || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
+
+    fetchProfile();
+  }, [user, router]);
 
   if (!user || !userData) {
     return (

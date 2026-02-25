@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
@@ -52,6 +52,7 @@ export default function ManageSponsorshipsPage() {
   const [sponsorships, setSponsorships] = useState<Sponsorship[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -102,6 +103,18 @@ export default function ManageSponsorshipsPage() {
       alert('Failed to delete sponsorship request');
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleStatusChange = async (id: string, newStatus: 'active' | 'paused') => {
+    setPublishing(id);
+    try {
+      await updateDoc(doc(db, 'sponsorships', id), { status: newStatus });
+    } catch (error) {
+      console.error('Error updating sponsorship status:', error);
+      alert('Failed to update status. Please try again.');
+    } finally {
+      setPublishing(null);
     }
   };
 
@@ -213,6 +226,33 @@ export default function ManageSponsorshipsPage() {
                     >
                       View Details
                     </Link>
+                    {sponsorship.status === 'pending' && (
+                      <button
+                        onClick={() => handleStatusChange(sponsorship.id, 'active')}
+                        disabled={publishing === sponsorship.id}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+                      >
+                        {publishing === sponsorship.id ? 'Publishing...' : 'Publish'}
+                      </button>
+                    )}
+                    {sponsorship.status === 'active' && (
+                      <button
+                        onClick={() => handleStatusChange(sponsorship.id, 'paused')}
+                        disabled={publishing === sponsorship.id}
+                        className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+                      >
+                        {publishing === sponsorship.id ? 'Pausing...' : 'Pause'}
+                      </button>
+                    )}
+                    {sponsorship.status === 'paused' && (
+                      <button
+                        onClick={() => handleStatusChange(sponsorship.id, 'active')}
+                        disabled={publishing === sponsorship.id}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+                      >
+                        {publishing === sponsorship.id ? 'Activating...' : 'Re-publish'}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(sponsorship.id)}
                       disabled={deleting === sponsorship.id}
