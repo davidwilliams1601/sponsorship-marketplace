@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       const subject = applyMergeTags(subjectTemplate, recipient);
       const text = applyMergeTags(bodyTemplate, recipient);
       await resend.emails.send({
-        from: 'SponsorConnect Admin <admin@yourdomain.com>',
+        from: 'SponsorConnect Admin <david@sponsorconnect.co>',
         to: recipient.email,
         subject,
         text,
