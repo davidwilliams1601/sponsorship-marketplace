@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 interface Recipient {
   id: string;
@@ -52,10 +50,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  // Verify admin role
+  // Verify admin role via Firestore REST API
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (!userDoc.exists() || userDoc.data()?.type !== 'admin') {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`;
+    const firestoreRes = await fetch(firestoreUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!firestoreRes.ok) {
+      return NextResponse.json({ error: 'Failed to verify admin status' }, { status: 500 });
+    }
+    const firestoreData = await firestoreRes.json();
+    const userType = firestoreData.fields?.type?.stringValue;
+    if (userType !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: admin access required' }, { status: 403 });
     }
   } catch {
