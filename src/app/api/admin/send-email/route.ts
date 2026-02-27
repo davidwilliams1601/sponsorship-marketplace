@@ -108,5 +108,42 @@ export async function POST(request: NextRequest) {
   const sent = data?.data?.length ?? 0;
   const failed = recipients.length - sent;
 
+  // Log the email send to Firestore
+  try {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const logUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/emailLogs`;
+    await fetch(logUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fields: {
+          adminId: { stringValue: uid },
+          subject: { stringValue: subjectTemplate },
+          sentAt: { timestampValue: new Date().toISOString() },
+          sentCount: { integerValue: sent },
+          failedCount: { integerValue: failed },
+          recipients: {
+            arrayValue: {
+              values: recipients.map((r) => ({
+                mapValue: {
+                  fields: {
+                    id: { stringValue: r.id },
+                    name: { stringValue: r.name },
+                    email: { stringValue: r.email },
+                  },
+                },
+              })),
+            },
+          },
+        },
+      }),
+    });
+  } catch {
+    // Non-fatal: logging failure shouldn't block the response
+  }
+
   return NextResponse.json({ sent, failed, total: recipients.length });
 }

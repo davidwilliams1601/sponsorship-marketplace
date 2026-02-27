@@ -52,6 +52,11 @@ interface UserDetail extends User {
   achievements?: string;
 }
 
+interface EmailLogEntry {
+  subject: string;
+  sentAt: any;
+}
+
 export default function AdminUsersPage() {
   const { user, userData } = useAuth();
   const router = useRouter();
@@ -71,6 +76,9 @@ export default function AdminUsersPage() {
   const [detailUser, setDetailUser] = useState<UserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Email logs: userId -> list of sends
+  const [emailLogsMap, setEmailLogsMap] = useState<Map<string, EmailLogEntry[]>>(new Map());
 
   // Email state
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -155,6 +163,23 @@ export default function AdminUsersPage() {
         });
 
         setUsers(usersList.map((u) => ({ ...u, ...userStatsMap.get(u.id) })));
+
+        // Fetch email logs
+        try {
+          const logsSnapshot = await getDocs(query(collection(db, 'emailLogs'), orderBy('sentAt', 'desc')));
+          const logsMap = new Map<string, EmailLogEntry[]>();
+          logsSnapshot.forEach((logDoc) => {
+            const logData = logDoc.data();
+            const entry: EmailLogEntry = { subject: logData.subject, sentAt: logData.sentAt };
+            (logData.recipients || []).forEach((r: any) => {
+              if (!logsMap.has(r.id)) logsMap.set(r.id, []);
+              logsMap.get(r.id)!.push(entry);
+            });
+          });
+          setEmailLogsMap(logsMap);
+        } catch {
+          // Non-fatal
+        }
       } catch (error) {
         console.error('Error fetching users:', error);
       } finally {
@@ -609,6 +634,11 @@ export default function AdminUsersPage() {
                         <div className="text-xs text-gray-500">
                           Last login {formatDate(u.lastLoginAt)}
                         </div>
+                        {emailLogsMap.has(u.id) && (
+                          <div className="text-xs text-indigo-600 mt-1">
+                            Emailed {formatDate(emailLogsMap.get(u.id)![0].sentAt)} ({emailLogsMap.get(u.id)!.length}x)
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -876,6 +906,26 @@ export default function AdminUsersPage() {
                     </div>
                   </div>
                 </section>
+
+                {/* Email History */}
+                {emailLogsMap.has(detailUser.id) && (
+                  <>
+                    <hr className="border-gray-200" />
+                    <section>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                        Email History ({emailLogsMap.get(detailUser.id)!.length} sent)
+                      </h3>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {emailLogsMap.get(detailUser.id)!.map((log, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-gray-100 last:border-0">
+                            <span className="text-gray-900 truncate flex-1 mr-4">{log.subject}</span>
+                            <span className="text-xs text-gray-500 shrink-0">{formatDate(log.sentAt)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </>
+                )}
               </div>
             )}
 

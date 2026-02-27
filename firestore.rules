@@ -178,6 +178,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Email logs - admin only
+    match /emailLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;
