@@ -96,12 +96,13 @@ export async function POST(request: NextRequest) {
     recipients.map(async (recipient) => {
       const subject = applyMergeTags(subjectTemplate, recipient);
       const text = applyMergeTags(bodyTemplate, recipient);
-      await resend.emails.send({
+      const { error } = await resend.emails.send({
         from: 'SponsorConnect Admin <david@sponsorconnect.co>',
         to: recipient.email,
         subject,
         text,
       });
+      if (error) throw new Error(error.message);
     })
   );
 
