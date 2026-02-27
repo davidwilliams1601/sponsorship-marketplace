@@ -91,23 +91,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Subject and body are required' }, { status: 400 });
   }
 
-  // Send emails
-  const results = await Promise.allSettled(
-    recipients.map(async (recipient) => {
-      const subject = applyMergeTags(subjectTemplate, recipient);
-      const text = applyMergeTags(bodyTemplate, recipient);
-      const { error } = await resend.emails.send({
-        from: 'SponsorConnect Admin <david@sponsorconnect.co>',
-        to: recipient.email,
-        subject,
-        text,
-      });
-      if (error) throw new Error(error.message);
-    })
-  );
+  // Send emails via batch API (single request, avoids rate limiting)
+  const batch = recipients.map((recipient) => ({
+    from: 'SponsorConnect Admin <david@sponsorconnect.co>',
+    to: recipient.email,
+    subject: applyMergeTags(subjectTemplate, recipient),
+    text: applyMergeTags(bodyTemplate, recipient),
+  }));
 
-  const sent = results.filter((r) => r.status === 'fulfilled').length;
-  const failed = results.filter((r) => r.status === 'rejected').length;
+  const { data, error } = await resend.batch.send(batch);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const sent = data?.data?.length ?? 0;
+  const failed = recipients.length - sent;
 
   return NextResponse.json({ sent, failed, total: recipients.length });
 }
